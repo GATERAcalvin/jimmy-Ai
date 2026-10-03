@@ -102,13 +102,18 @@ Ruth in the notification area are the whole app, and Quit lives in its menu.
 The 28 sounds are Ruth's own, synthesised by `scripts/gen-sounds.py` into
 `public/sounds/` (Vite serves and bundles that folder as-is).
 
-The app icon, the tray icon and the sounds are all generated in code, like Ruth
-itself:
+The app and tray icons are cut from `assets/icon-source.jpg` (the portrait), and
+the sounds are synthesised in code:
 
 ```powershell
-npm run icons          # regenerates src-tauri/icons from scripts/gen-icons.mjs
+pip install pillow
+npm run icons          # rebuilds src-tauri/icons from assets/icon-source.jpg
+npm run icons:drawn    # the older drawn-in-code Ruth icon instead
 python scripts/gen-sounds.py   # regenerates public/sounds
 ```
+
+To change the icon, replace `assets/icon-source.jpg` (and adjust `CROP` in
+`scripts/icon-from-image.py`), then run `npm run icons`.
 
 ### Layout
 
