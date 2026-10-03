@@ -1,0 +1,12 @@
+# Build output
+node_modules/
+dist/
+target/
+windows/release/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local only
+.claude/
