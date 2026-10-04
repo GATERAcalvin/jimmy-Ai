@@ -11,6 +11,7 @@ mod platform;
 mod secrets;
 mod settings;
 mod tray;
+mod voice;
 
 use std::process::Command;
 use std::sync::atomic::Ordering;
@@ -61,12 +62,14 @@ fn boot(app: AppHandle, shared: State<Shared>) -> BootInfo {
 
 #[tauri::command]
 fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
-    let (screen_changed, autostart_changed) = {
+    let (screen_changed, autostart_changed, voice_changed) = {
         let mut current = shared.settings.lock().unwrap();
         let screen_changed = current.screen != settings.screen;
         let autostart_changed = current.autostart != settings.autostart;
+        let voice_changed = current.voice_enabled != settings.voice_enabled
+            || current.voice_hotkey != settings.voice_hotkey;
         *current = settings.clone();
-        (screen_changed, autostart_changed)
+        (screen_changed, autostart_changed, voice_changed)
     };
     if let Err(err) = settings::save(&settings) {
         eprintln!("[ruth] could not save settings: {err}");
@@ -81,6 +84,9 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
     if screen_changed {
         let collapsed = shared.gate.collapsed.load(Ordering::Relaxed);
         island::apply_geometry(&app, &settings.screen, collapsed);
+    }
+    if voice_changed {
+        voice::apply_hotkey(&app, &settings);
     }
     // Keep the other window in step (island ⇄ settings window).
     let _ = app.emit("settings-changed", settings);
@@ -240,9 +246,40 @@ async fn chat_send(
     chat: State<'_, Chat>,
     query: String,
     context: Option<ChatContext>,
+    spoken: Option<bool>,
 ) -> Result<ChatReply, String> {
     let model = shared.settings.lock().unwrap().model.clone();
-    claude::send(&chat, &model, query, context).await
+    claude::send(&chat, &model, query, context, spoken.unwrap_or(false)).await
+}
+
+// ── Voice ─────────────────────────────────────────────────────────────────────
+
+/// Recording (16 kHz mono WAV, base64) → text. Online, offline or auto, per the
+/// settings; keys and the offline engine stay on this side.
+#[tauri::command]
+async fn voice_transcribe(
+    shared: State<'_, Shared>,
+    wav: String,
+) -> Result<voice::Transcript, String> {
+    let settings = shared.settings.lock().unwrap().clone();
+    voice::transcribe(&wav, &settings).await
+}
+
+/// Text → speech. Online returns audio to play; offline returns the cleaned
+/// text for the page to speak with a system voice.
+#[tauri::command]
+async fn voice_synthesize(
+    shared: State<'_, Shared>,
+    text: String,
+) -> Result<voice::Speech, String> {
+    let settings = shared.settings.lock().unwrap().clone();
+    voice::synthesize(&text, &settings).await
+}
+
+#[tauri::command]
+fn voice_status(app: AppHandle, shared: State<Shared>) -> voice::VoiceStatus {
+    let settings = shared.settings.lock().unwrap().clone();
+    voice::status(&app, &settings)
 }
 
 #[tauri::command]
@@ -368,6 +405,8 @@ pub fn run() {
             let _ = app.emit_to(island::WINDOW_LABEL, "tray", "open".to_string());
         }))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .manage(voice::VoiceState::default())
         .manage(Shared {
             settings: Mutex::new(loaded.clone()),
             gate: gate.clone(),
@@ -393,6 +432,9 @@ pub fn run() {
             log_line,
             chat_send,
             chat_reset,
+            voice_transcribe,
+            voice_synthesize,
+            voice_status,
             ingest_file,
             secret_present,
             secret_set,
@@ -424,6 +466,7 @@ pub fn run() {
 
             log::line(format!("--- Ruth {} started ---", env!("CARGO_PKG_VERSION")));
             hooks::ensure_hook_exe(&handle);
+            voice::apply_hotkey(&handle, &loaded);
             pipe::start(handle.clone());
             integrations::start(handle.clone());
             Ok(())

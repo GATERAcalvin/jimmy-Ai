@@ -82,8 +82,8 @@ export const Bridge = {
 
   // ── Chat, files, secrets ──────────────────────────────────────────────────
   /** One chat turn. The API key and any file bytes never leave Rust. */
-  chatSend: (query: string, context: ChatContext | null) =>
-    callOrThrow<{ text: string }>("chat_send", { query, context }),
+  chatSend: (query: string, context: ChatContext | null, spoken = false) =>
+    callOrThrow<{ text: string }>("chat_send", { query, context, spoken }),
   chatReset: () => call<void>("chat_reset"),
   /** Copies a dropped file into the inbox. */
   ingestFile: (path: string) => callOrThrow<DroppedFile>("ingest_file", { path }),
@@ -91,6 +91,13 @@ export const Bridge = {
   secretPresent: (key: string) => call<boolean>("secret_present", { key }),
   secretSet: (key: string, value: string) => callOrThrow<void>("secret_set", { key, value }),
   secretClear: (key: string) => callOrThrow<void>("secret_clear", { key }),
+
+  // ── Voice ─────────────────────────────────────────────────────────────────
+  /** A 16 kHz mono WAV (base64) → text, online or offline per the settings. */
+  voiceTranscribe: (wav: string) => callOrThrow<Transcript>("voice_transcribe", { wav }),
+  /** Online: audio to play. Offline: the cleaned text, to speak with a system voice. */
+  voiceSynthesize: (text: string) => callOrThrow<Speech>("voice_synthesize", { text }),
+  voiceStatus: () => call<VoiceStatus>("voice_status"),
 
   // ── Integrations ──────────────────────────────────────────────────────────
   refreshIntegration: (id: string) => call<void>("refresh_integration", { id }),
@@ -111,6 +118,30 @@ export interface IntegrationUpdate {
 export type ChatContext =
   | { kind: "file"; name: string; path: string }
   | { kind: "window"; appName: string; title: string; url?: string };
+
+export interface Transcript {
+  text: string;
+  /** "openai" or "whisper.cpp". */
+  engine: string;
+}
+
+export interface Speech {
+  /** "openai" (audio attached) or "system" (speak `text` with a system voice). */
+  engine: string;
+  audio: string | null;
+  mime: string;
+  text: string;
+}
+
+export interface VoiceStatus {
+  openaiKey: boolean;
+  offlineReady: boolean;
+  whisperCli: string | null;
+  whisperModel: string | null;
+  voiceDir: string;
+  hotkeyRegistered: string | null;
+  hotkeyError: string | null;
+}
 
 export interface DroppedFile {
   name: string;

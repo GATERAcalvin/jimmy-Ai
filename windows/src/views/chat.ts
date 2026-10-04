@@ -10,6 +10,55 @@ import type { ViewHost } from "./views";
 
 let nextId = 1;
 
+/** True while a question is with Claude. Shared by typing and voice. */
+let sending = false;
+let heightChanged: () => void = () => {};
+let focusInput: () => void = () => {};
+
+export function isChatBusy(): boolean {
+  return sending;
+}
+
+/**
+ * One chat turn, whether it was typed or spoken: adds the question, waits for
+ * Claude, adds the answer. Returns the answer's text, or null if it failed (the
+ * island then shows the error in the note view).
+ */
+export async function askClaude(query: string, opts: { spoken?: boolean } = {}): Promise<string | null> {
+  const text = query.trim();
+  if (!text || sending) return null;
+  sending = true;
+  Sound.play("send");
+
+  State.chatHistory.push({ id: nextId++, role: "user", content: text });
+  State.stateOverride = "thinking";
+  State.notify();
+  heightChanged();
+
+  const file = State.droppedFile;
+  const context: ChatContext | null =
+    State.chatHistory.length === 1 && file ? { kind: "file", name: file.name, path: file.path } : null;
+
+  try {
+    const reply = await Bridge.chatSend(text, context, opts.spoken ?? false);
+    State.chatHistory.push({ id: nextId++, role: "assistant", content: reply.text });
+    State.stateOverride = null;
+    Sound.play("finish");
+    return reply.text;
+  } catch (err) {
+    State.stateOverride = null;
+    State.noteMessage = String(err).replace(/^Error:\s*/, "");
+    State.view = "note";
+    Sound.play("error");
+    return null;
+  } finally {
+    sending = false;
+    State.notify();
+    heightChanged();
+    focusInput();
+  }
+}
+
 function bubble(message: ChatMessage): HTMLElement {
   if (message.role === "user") {
     return h(
@@ -46,7 +95,8 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
     spellcheck: "false",
   }) as HTMLInputElement;
   const send = h("button", { class: "send-btn", title: "Send" }, svg(ICONS.arrowUp, 11));
-  const bar = h("div", { class: "chat-bar" }, input, send);
+  const mic = h("button", { class: "mic-btn", title: "Talk" }, svg(ICONS.mic, 14, { stroke: 1.8 }));
+  const bar = h("div", { class: "chat-bar" }, input, mic, send);
 
   const el = h(
     "div",
@@ -55,44 +105,20 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
   );
   (el.querySelector(".card") as HTMLElement).style.setProperty("--wash", "rgba(99,102,241,0.5)");
 
-  let sending = false;
   let renderedCount = -1;
+
+  heightChanged = onHeightChange;
+  focusInput = () => input.focus();
 
   async function submit() {
     const query = input.value.trim();
     if (!query || sending) return;
     input.value = "";
-    sending = true;
-    Sound.play("send");
-
-    State.chatHistory.push({ id: nextId++, role: "user", content: query });
-    State.stateOverride = "thinking";
-    State.notify();
-    onHeightChange();
-
-    const file = State.droppedFile;
-    const context: ChatContext | null =
-      State.chatHistory.length === 1 && file ? { kind: "file", name: file.name, path: file.path } : null;
-
-    try {
-      const reply = await Bridge.chatSend(query, context);
-      State.chatHistory.push({ id: nextId++, role: "assistant", content: reply.text });
-      State.stateOverride = null;
-      Sound.play("finish");
-    } catch (err) {
-      State.stateOverride = null;
-      State.noteMessage = String(err).replace(/^Error:\s*/, "");
-      State.view = "note";
-      Sound.play("error");
-    } finally {
-      sending = false;
-      State.notify();
-      onHeightChange();
-      input.focus();
-    }
+    await askClaude(query);
   }
 
   send.addEventListener("click", () => void submit());
+  mic.addEventListener("click", () => State.voiceToggle?.());
   input.addEventListener("keydown", (e) => {
     if ((e as KeyboardEvent).key === "Enter") {
       e.preventDefault();
@@ -122,8 +148,18 @@ export function buildPrompt(onHeightChange: () => void): ViewHost {
         log.scrollTop = log.scrollHeight;
       }
 
-      input.placeholder = State.chatHistory.length === 0 ? "Ask me anything…" : "Continue…";
-      input.disabled = sending;
+      const phase = State.voicePhase;
+      mic.style.display = State.settings.voiceEnabled ? "" : "none";
+      mic.classList.toggle("on", phase === "listening");
+      mic.classList.toggle("busy", phase === "transcribing" || phase === "thinking");
+      mic.title =
+        phase === "listening" ? "Stop and send" : phase === "speaking" ? "Stop talking" : "Talk";
+      input.placeholder =
+        phase === "listening" ? "Listening…"
+        : phase === "transcribing" ? "Listening to what you said…"
+        : phase === "speaking" ? "Speaking…"
+        : State.chatHistory.length === 0 ? "Ask me anything…" : "Continue…";
+      input.disabled = sending || phase === "listening" || phase === "transcribing";
     },
     focus() {
       input.focus();

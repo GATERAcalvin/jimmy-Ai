@@ -27,6 +27,11 @@ You have web search access and can help with absolutely anything — research, c
 Respond in the user's language. Be thorough and complete — use as much detail as the task requires. \
 No markdown formatting (no **, no ##, no bullet dashes). Use plain text with line breaks.";
 
+/// Added when the question was spoken: the answer will be read aloud.
+const SPOKEN_ADDENDUM: &str = "\n\nThe user is talking to you by voice and your answer will be read aloud. \
+Keep it short and conversational — a few sentences unless they ask for more. \
+Never read out links, code or lists; describe them in words instead.";
+
 #[derive(Default)]
 pub struct Chat {
     /// Full multi-turn history, including tool_use / tool_result blocks.
@@ -75,6 +80,7 @@ pub async fn send(
     model: &str,
     query: String,
     context: Option<ChatContext>,
+    spoken: bool,
 ) -> Result<ChatReply, String> {
     let key = secrets::get("anthropic-api-key")
         .ok_or_else(|| "API key missing. Open settings.".to_string())?;
@@ -105,10 +111,15 @@ pub async fn send(
 
     chat.push(json!({ "role": "user", "content": content }));
 
+    let system = if spoken {
+        format!("{SYSTEM_PROMPT}{SPOKEN_ADDENDUM}")
+    } else {
+        SYSTEM_PROMPT.to_string()
+    };
     let body = json!({
         "model": model,
         "max_tokens": MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
+        "system": system,
         "tools": [{ "type": "web_search_20260209", "name": "web_search", "max_uses": 5 }],
         "fallbacks": "default",
         "messages": chat.snapshot(),

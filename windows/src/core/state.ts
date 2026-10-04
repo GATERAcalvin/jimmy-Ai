@@ -28,6 +28,9 @@ export interface ApprovalInfo {
   command: string;
 }
 
+/** Where a spoken exchange is: nothing, recording, turning speech into text, waiting for Claude, or speaking. */
+export type VoicePhase = "idle" | "listening" | "transcribing" | "thinking" | "speaking";
+
 export interface ChatMessage {
   id: number;
   role: "user" | "assistant";
@@ -92,6 +95,17 @@ export interface Settings {
   hooksInstalled: boolean;
   /** Claude model used by the chat. */
   model: string;
+  // Voice (push-to-talk)
+  voiceEnabled: boolean;
+  voiceHotkey: string;
+  /** "auto" = online when possible, otherwise offline. */
+  voiceMode: "auto" | "online" | "offline";
+  voiceSpeak: boolean;
+  voiceLanguage: string;
+  whisperCliPath: string;
+  whisperModelPath: string;
+  ttsVoice: string;
+  offlineVoice: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -106,6 +120,15 @@ export const DEFAULT_SETTINGS: Settings = {
   autostart: false,
   hooksInstalled: false,
   model: "claude-opus-5",
+  voiceEnabled: true,
+  voiceHotkey: "Ctrl+Alt+J",
+  voiceMode: "auto",
+  voiceSpeak: true,
+  voiceLanguage: "auto",
+  whisperCliPath: "",
+  whisperModelPath: "",
+  ttsVoice: "alloy",
+  offlineVoice: "",
 };
 
 type Listener = () => void;
@@ -118,6 +141,11 @@ class AppState {
   focusId: string | null = null;
 
   stateOverride: BotStateName | null = null;
+
+  /** Driven by the voice controller; the chat bar reads it. */
+  voicePhase: VoicePhase = "idle";
+  /** The mic button calls this: start, stop or interrupt, depending on the phase. */
+  voiceToggle: (() => void) | null = null;
 
   /** Cursor in logical screen pixels, origin top-left (like AppState.mousePosition). */
   mouse = { x: 0, y: 0 };

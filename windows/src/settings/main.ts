@@ -3,9 +3,11 @@
 // integrations land here too in a later stage.
 
 import "./settings.css";
-import { Bridge, onEvent, type HookStatus } from "../core/bridge";
+import { Bridge, onEvent, type HookStatus, type VoiceStatus } from "../core/bridge";
 import { DEFAULT_SETTINGS, type Settings } from "../core/state";
 import { h, clear } from "../views/dom";
+import { Recorder } from "../voice/recorder";
+import { Speaker, listSystemVoices } from "../voice/speaker";
 
 let settings: Settings = { ...DEFAULT_SETTINGS };
 let version = "";
@@ -358,6 +360,333 @@ function integrationsSection(present: Record<string, boolean>): HTMLElement {
   return h("section", {}, h("h2", {}, h("span", { text: "Integrations" })), note, list);
 }
 
+// ── Voice section ─────────────────────────────────────────────────────────────
+
+const VOICE_LANGUAGES: [string, string][] = [
+  ["auto", "Detect automatically"],
+  ["en", "English"],
+  ["fr", "French"],
+  ["sw", "Swahili"],
+  ["es", "Spanish"],
+  ["pt", "Portuguese"],
+  ["de", "German"],
+  ["ar", "Arabic"],
+];
+
+const ONLINE_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+
+function voiceSection(initial: VoiceStatus | null): HTMLElement {
+  let status = initial;
+
+  const dot = statusDot(false);
+  const hotkeyLine = h("div", { class: "hint" });
+  const modeHint = h("div", { class: "hint" });
+  const offlineBox = h("div", {});
+  const keyState = h("span", { class: "hint" });
+  const testOut = h("div", { class: "hint", style: "min-height:18px" });
+
+  // Switches and selects ------------------------------------------------------
+
+  const enabled = toggle(settings.voiceEnabled, (v) => {
+    settings.voiceEnabled = v;
+    void save().then(() => setTimeout(refresh, 250));
+  });
+
+  const hotkey = h("input", {
+    type: "text",
+    value: settings.voiceHotkey,
+    spellcheck: "false",
+    autocomplete: "off",
+    style: "width:170px",
+  }) as HTMLInputElement;
+  hotkey.addEventListener("change", () => {
+    const v = hotkey.value.trim();
+    if (!v) {
+      hotkey.value = settings.voiceHotkey;
+      return;
+    }
+    settings.voiceHotkey = v;
+    void save().then(() => setTimeout(refresh, 250));
+  });
+
+  const mode = h("select", {}) as HTMLSelectElement;
+  mode.append(
+    h("option", { value: "auto", text: "Automatic: online when possible, else offline" }),
+    h("option", { value: "online", text: "Online only" }),
+    h("option", { value: "offline", text: "Offline only" }),
+  );
+  mode.value = settings.voiceMode;
+  mode.addEventListener("change", () => {
+    settings.voiceMode = mode.value as Settings["voiceMode"];
+    void save();
+    renderHints();
+  });
+
+  const language = h("select", {}) as HTMLSelectElement;
+  for (const [code, label] of VOICE_LANGUAGES) language.append(h("option", { value: code, text: label }));
+  language.value = settings.voiceLanguage;
+  language.addEventListener("change", () => {
+    settings.voiceLanguage = language.value;
+    void save();
+  });
+
+  const speak = toggle(settings.voiceSpeak, (v) => {
+    settings.voiceSpeak = v;
+    void save();
+  });
+
+  // Online: OpenAI -------------------------------------------------------------
+
+  const keyField = h("input", {
+    type: "password",
+    placeholder: "sk-...",
+    style: "flex:1 1 auto;min-width:0",
+    autocomplete: "off",
+    spellcheck: "false",
+  }) as HTMLInputElement;
+  const keySave = h("button", { class: "primary", text: "Save key" });
+  const keyClear = h("button", { class: "danger", text: "Remove" });
+  const keyFeedback = h("div", {});
+
+  keySave.addEventListener("click", async () => {
+    const value = keyField.value.trim();
+    if (!value) return;
+    clear(keyFeedback);
+    try {
+      await Bridge.secretSet("openai-api-key", value);
+      keyField.value = "";
+      keyFeedback.append(h("div", { class: "notice ok", text: "Saved in the Windows Credential Manager." }));
+      await refresh();
+    } catch (err) {
+      keyFeedback.append(h("div", { class: "notice err", text: `Could not save: ${String(err)}` }));
+    }
+  });
+  keyClear.addEventListener("click", async () => {
+    clear(keyFeedback);
+    try {
+      await Bridge.secretClear("openai-api-key");
+      keyFeedback.append(h("div", { class: "notice ok", text: "Key removed." }));
+      await refresh();
+    } catch (err) {
+      keyFeedback.append(h("div", { class: "notice err", text: `Could not remove: ${String(err)}` }));
+    }
+  });
+
+  const onlineVoice = h("select", {}) as HTMLSelectElement;
+  for (const v of ONLINE_VOICES) onlineVoice.append(h("option", { value: v, text: v }));
+  if (!ONLINE_VOICES.includes(settings.ttsVoice)) {
+    onlineVoice.append(h("option", { value: settings.ttsVoice, text: settings.ttsVoice }));
+  }
+  onlineVoice.value = settings.ttsVoice;
+  onlineVoice.addEventListener("change", () => {
+    settings.ttsVoice = onlineVoice.value;
+    void save();
+  });
+
+  // Offline --------------------------------------------------------------------
+
+  const cliPath = h("input", {
+    type: "text",
+    value: settings.whisperCliPath,
+    placeholder: "Auto: whisper-cli.exe in the voice folder",
+    spellcheck: "false",
+    style: "flex:1 1 auto;min-width:0",
+  }) as HTMLInputElement;
+  cliPath.addEventListener("change", () => {
+    settings.whisperCliPath = cliPath.value.trim();
+    void save().then(() => setTimeout(refresh, 250));
+  });
+  const modelPath = h("input", {
+    type: "text",
+    value: settings.whisperModelPath,
+    placeholder: "Auto: a ggml-*.bin model in the voice folder",
+    spellcheck: "false",
+    style: "flex:1 1 auto;min-width:0",
+  }) as HTMLInputElement;
+  modelPath.addEventListener("change", () => {
+    settings.whisperModelPath = modelPath.value.trim();
+    void save().then(() => setTimeout(refresh, 250));
+  });
+
+  const systemVoice = h("select", {}) as HTMLSelectElement;
+  systemVoice.append(h("option", { value: "", text: "System default" }));
+  void listSystemVoices().then((voices) => {
+    for (const v of voices) systemVoice.append(h("option", { value: v.name, text: `${v.name} (${v.lang})` }));
+    systemVoice.value = settings.offlineVoice;
+  });
+  systemVoice.addEventListener("change", () => {
+    settings.offlineVoice = systemVoice.value;
+    void save();
+  });
+
+  // Tests ----------------------------------------------------------------------
+
+  const testVoice = h("button", { class: "primary", text: "Test voice" });
+  testVoice.addEventListener("click", async () => {
+    if (Speaker.speaking) {
+      Speaker.stop();
+      return;
+    }
+    testOut.textContent = "Speaking…";
+    testVoice.textContent = "Stop";
+    try {
+      const { engine } = await Speaker.speak("Hello! Voice is working.", {
+        offlineVoice: settings.offlineVoice,
+      });
+      testOut.textContent = `Spoken with: ${engine === "openai" ? "OpenAI (online)" : "a system voice (offline)"}.`;
+    } catch (err) {
+      testOut.textContent = `Could not speak: ${String(err).replace(/^Error:\s*/, "")}`;
+    }
+    testVoice.textContent = "Test voice";
+  });
+
+  const rec = new Recorder();
+  let autoStop: number | null = null;
+  const testMic = h("button", { class: "primary", text: "Test microphone" });
+
+  async function finishMicTest() {
+    if (autoStop != null) {
+      window.clearTimeout(autoStop);
+      autoStop = null;
+    }
+    testMic.textContent = "Test microphone";
+    const r = await rec.stop();
+    if (!r || r.peak < 0.01) {
+      testOut.textContent = "I didn't hear anything. Check the microphone and try again.";
+      return;
+    }
+    testOut.textContent = "Transcribing…";
+    try {
+      const t = await Bridge.voiceTranscribe(r.wav);
+      const how = t.engine === "openai" ? "OpenAI (online)" : "whisper.cpp (offline)";
+      testOut.textContent = t.text ? `Heard via ${how}: “${t.text}”` : `Heard nothing via ${how}.`;
+    } catch (err) {
+      testOut.textContent = String(err).replace(/^Error:\s*/, "");
+    }
+  }
+  rec.onLimit = () => void finishMicTest();
+  testMic.addEventListener("click", async () => {
+    if (rec.active) {
+      await finishMicTest();
+      return;
+    }
+    testOut.textContent = "Listening… click again to stop (4 seconds at most).";
+    testMic.textContent = "Stop";
+    try {
+      await rec.start();
+      autoStop = window.setTimeout(() => void finishMicTest(), 4000);
+    } catch (err) {
+      testMic.textContent = "Test microphone";
+      testOut.textContent = String(err).replace(/^Error:\s*/, "");
+    }
+  });
+
+  // Rendering ------------------------------------------------------------------
+
+  function renderHints() {
+    const online = status?.openaiKey ?? false;
+    const offline = status?.offlineReady ?? false;
+    const m = settings.voiceMode;
+    if (m === "online") {
+      modeHint.textContent = online
+        ? "Everything goes through OpenAI. Needs an internet connection."
+        : "Online only, but no OpenAI key is saved yet.";
+    } else if (m === "offline") {
+      modeHint.textContent = offline
+        ? "Speech is transcribed on this computer, and answers use a system voice. No audio leaves it."
+        : "Offline only, but the offline engine isn't set up yet (see below).";
+    } else if (online && offline) {
+      modeHint.textContent = "Online first; if that fails or there is no connection, it switches to offline.";
+    } else if (online) {
+      modeHint.textContent = "Using online. Set up the offline engine to keep working without internet.";
+    } else if (offline) {
+      modeHint.textContent = "Using offline. Add an OpenAI key for a more natural voice and better accuracy.";
+    } else {
+      modeHint.textContent = "Nothing is ready yet: save an OpenAI key, or set up the offline engine.";
+    }
+  }
+
+  function renderOffline() {
+    clear(offlineBox);
+    if (!status) return;
+    if (status.offlineReady) {
+      offlineBox.append(
+        h("div", { class: "notice ok", text: "Offline transcription is ready." }),
+        h("div", { class: "hint", text: `Engine: ${status.whisperCli}` }),
+        h("div", { class: "hint", text: `Model: ${status.whisperModel}` }),
+      );
+    } else {
+      offlineBox.append(
+        h("div", {
+          class: "notice err",
+          text:
+            "Offline transcription isn't set up. In the project's windows folder run: " +
+            "powershell -ExecutionPolicy Bypass -File scripts\\setup-offline-voice.ps1 " +
+            `(or place whisper-cli.exe and a ggml-*.bin model in ${status.voiceDir}).`,
+        }),
+      );
+    }
+  }
+
+  async function refresh() {
+    status = (await Bridge.voiceStatus()) ?? status;
+    if (!status) return;
+    dot.style.background = status.openaiKey || status.offlineReady ? "#22c55e" : "#f4505e";
+    keyState.textContent = status.openaiKey
+      ? "Key saved in the Windows Credential Manager."
+      : "No key saved. Optional if you only use offline.";
+    keyField.placeholder = status.openaiKey ? "••••••••••••  (stored)" : "sk-...";
+    keyClear.style.display = status.openaiKey ? "" : "none";
+
+    hotkeyLine.className = "hint";
+    if (!settings.voiceEnabled) {
+      hotkeyLine.textContent = "Voice is off.";
+    } else if (status.hotkeyError) {
+      hotkeyLine.textContent = status.hotkeyError;
+      hotkeyLine.style.color = "#f4505e";
+    } else if (status.hotkeyRegistered) {
+      hotkeyLine.textContent = `Hold ${status.hotkeyRegistered} anywhere to talk.`;
+      hotkeyLine.style.color = "";
+    }
+    renderHints();
+    renderOffline();
+  }
+  void refresh();
+  keyClear.style.display = initial?.openaiKey ? "" : "none";
+
+  return h(
+    "section",
+    {},
+    h("h2", {}, dot, h("span", { text: "Voice" })),
+    h("div", {
+      class: "hint",
+      text: "Hold the hotkey, speak, let go. Ruth writes down what you said, asks Claude, and reads the answer aloud.",
+    }),
+    h("div", { class: "row" }, h("label", { text: "Voice" }), enabled),
+    h("div", { class: "row" }, h("label", { text: "Hotkey" }), hotkey),
+    hotkeyLine,
+    h("div", { class: "row" }, h("label", { text: "Engines" }), mode),
+    modeHint,
+    h("div", { class: "row" }, h("label", { text: "Language" }), language),
+    h("div", { class: "row" }, h("label", { text: "Speak replies" }), speak),
+
+    h("div", { class: "hint", style: "font-weight:600;margin-top:12px", text: "Online (OpenAI)" }),
+    keyState,
+    h("div", { class: "row" }, h("label", { text: "OpenAI key" }), keyField, keySave, keyClear),
+    keyFeedback,
+    h("div", { class: "row" }, h("label", { text: "Voice" }), onlineVoice),
+
+    h("div", { class: "hint", style: "font-weight:600;margin-top:12px", text: "Offline" }),
+    offlineBox,
+    h("div", { class: "row" }, h("label", { text: "whisper.cpp" }), cliPath),
+    h("div", { class: "row" }, h("label", { text: "Model" }), modelPath),
+    h("div", { class: "row" }, h("label", { text: "System voice" }), systemVoice),
+
+    h("div", { class: "row", style: "margin-top:12px" }, testMic, testVoice),
+    testOut,
+  );
+}
+
 // ── General section ───────────────────────────────────────────────────────────
 
 function generalSection(): HTMLElement {
@@ -430,6 +759,7 @@ async function main() {
   };
 
   const hasKey = (await Bridge.secretPresent("anthropic-api-key")) ?? false;
+  const voiceStatus = await Bridge.voiceStatus();
 
   const keys = [
     "stripe-api-key", "github-token", "vercel-token",
@@ -443,6 +773,7 @@ async function main() {
     h("h1", {}, h("span", { text: "Ruth" }), h("span", { class: "version", text: version })),
     claudeSection(status),
     apiSection(hasKey),
+    voiceSection(voiceStatus),
     integrationsSection(present),
     generalSection(),
     h("div", {
