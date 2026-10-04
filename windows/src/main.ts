@@ -7,6 +7,7 @@ import { State, type Settings } from "./core/state";
 import { Island } from "./island/island";
 import { registerHookHandlers } from "./island/hooks";
 import { registerIntegrationHandlers, refreshConfigured } from "./island/integrations";
+import { Voice } from "./voice/voice";
 
 async function main() {
   const root = document.getElementById("root");
@@ -63,6 +64,18 @@ async function main() {
 
   registerHookHandlers(island);
   registerIntegrationHandlers(island);
+
+  // Push-to-talk: the hotkey and the mic button both land here.
+  await Voice.init({
+    openChat: () => {
+      State.isPinned = true;
+      island.alert("prompt");
+    },
+    release: () => {
+      State.isPinned = false;
+      island.dropPin();
+    },
+  });
 
   island.launch();
 

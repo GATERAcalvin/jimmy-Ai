@@ -20,6 +20,54 @@ pub struct Settings {
     /// Defaulted explicitly so a settings.json written by an older build still loads.
     #[serde(default = "default_model")]
     pub model: String,
+
+    // ── Voice (push-to-talk) ──────────────────────────────────────────────────
+    /// Hold the hotkey to talk. Every voice field defaults so an older
+    /// settings.json still loads.
+    #[serde(default = "yes")]
+    pub voice_enabled: bool,
+    #[serde(default = "default_voice_hotkey")]
+    pub voice_hotkey: String,
+    /// "auto" (online when possible, else offline), "online" or "offline".
+    #[serde(default = "default_voice_mode")]
+    pub voice_mode: String,
+    /// Speak the answer aloud after a spoken question.
+    #[serde(default = "yes")]
+    pub voice_speak: bool,
+    /// Language hint for transcription: "auto", or a code like "en" / "fr".
+    #[serde(default = "default_voice_language")]
+    pub voice_language: String,
+    /// Offline engine (whisper.cpp). Empty = look in the voice folder.
+    #[serde(default)]
+    pub whisper_cli_path: String,
+    #[serde(default)]
+    pub whisper_model_path: String,
+    /// Online speech voice.
+    #[serde(default = "default_tts_voice")]
+    pub tts_voice: String,
+    /// System voice used offline, by name. Empty = the system default.
+    #[serde(default)]
+    pub offline_voice: String,
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn default_voice_hotkey() -> String {
+    "Ctrl+Alt+J".into()
+}
+
+fn default_voice_mode() -> String {
+    "auto".into()
+}
+
+fn default_voice_language() -> String {
+    "auto".into()
+}
+
+fn default_tts_voice() -> String {
+    "alloy".into()
 }
 
 fn default_model() -> String {
@@ -43,6 +91,15 @@ impl Default for Settings {
             autostart: false,
             hooks_installed: false,
             model: default_model(),
+            voice_enabled: true,
+            voice_hotkey: default_voice_hotkey(),
+            voice_mode: default_voice_mode(),
+            voice_speak: true,
+            voice_language: default_voice_language(),
+            whisper_cli_path: String::new(),
+            whisper_model_path: String::new(),
+            tts_voice: default_tts_voice(),
+            offline_voice: String::new(),
         }
     }
 }

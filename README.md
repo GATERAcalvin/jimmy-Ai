@@ -2,6 +2,8 @@
 
 A small companion for [Claude Code](https://claude.com/claude-code) that lives at the top of your screen. It shows your sessions, lets you approve or deny permission requests, chat with Claude and drop files, without leaving what you are doing.
 
+You can talk to it: hold a hotkey, speak, and it answers out loud, online or fully offline for the speech part (see [Voice](windows/README.md#voice)).
+
 The app is in [`windows/`](windows/README.md) (Tauri 2, TypeScript, Rust). It builds for Windows 10/11 and also for Linux.
 
 ```powershell

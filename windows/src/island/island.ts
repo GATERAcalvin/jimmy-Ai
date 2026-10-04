@@ -853,8 +853,12 @@ export class Island {
       const wasChat = this.lastSyncedView === "prompt";
       this.lastSyncedView = State.view;
       if (State.view === "prompt") {
-        void Bridge.focusWindow(true);
-        window.setTimeout(() => this.views.get("prompt")?.focus?.(), 120);
+        // A spoken turn needs no keyboard: taking focus would pull the user out
+        // of whatever they are working in.
+        if (State.voicePhase === "idle") {
+          void Bridge.focusWindow(true);
+          window.setTimeout(() => this.views.get("prompt")?.focus?.(), 120);
+        }
       } else if (wasChat) {
         void Bridge.focusWindow(false);
       }
