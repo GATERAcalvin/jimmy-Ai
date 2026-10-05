@@ -13,4 +13,4 @@ class CaptureProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("ruth-capture", CaptureProcessor);
+registerProcessor("jimmy-capture", CaptureProcessor);

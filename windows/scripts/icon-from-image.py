@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds Ruth's app and tray icons from assets/icon-source.jpg.
+"""Builds Jimmy's app and tray icons from assets/icon-source.jpg.
 
 Crops a square around the face, rounds the corners, and writes the PNG/ICO set
 Tauri needs into src-tauri/icons/.

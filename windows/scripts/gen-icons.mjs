@@ -1,4 +1,4 @@
-// Draws Ruth into the PNG/ICO set Tauri needs. No dependencies: the icons are
+// Draws Jimmy into the PNG/ICO set Tauri needs. No dependencies: the icons are
 // rasterised here and encoded with node:zlib, so the app icon stays "drawn in
 // code" like the character itself.
 //
@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "src-tauri", "icons");
 
-// ── Ruth ─────────────────────────────────────────────────────────────────────
+// ── Jimmy ─────────────────────────────────────────────────────────────────────
 
 const BASE_TOP = [255, 227, 194]; // #FFE3C2 warm cream
 const BASE_BOTTOM = [230, 138, 92]; // #E68A5C terracotta
@@ -20,7 +20,7 @@ const RIM = [0, 0, 0];
 
 const SS = 4; // supersampling factor
 
-/** Ruth's body in body-local coordinates: a soft dome on a squarer base (y points down). */
+/** Jimmy's body in body-local coordinates: a soft dome on a squarer base (y points down). */
 function insideBody(x, y, rx, ry) {
   const n = y < 0 ? 2.25 : 4.4;
   return Math.pow(Math.abs(x / rx), n) + Math.pow(Math.abs(y / ry), n) <= 1;
@@ -52,7 +52,7 @@ function insidePill(x, y, w, h) {
   return (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
 }
 
-function renderRuth(size) {
+function renderJimmy(size) {
   const px = new Uint8Array(size * size * 4);
   const R = size * 0.34;
   const rx = R * 1.14;
@@ -199,7 +199,7 @@ function encodeICO(entries) {
 
 mkdirSync(OUT, { recursive: true });
 
-const png = (size) => encodePNG(size, renderRuth(size));
+const png = (size) => encodePNG(size, renderJimmy(size));
 
 const files = {
   "32x32.png": png(32),

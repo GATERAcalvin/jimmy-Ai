@@ -8,7 +8,7 @@
 //   * click-through is the window's input region, set to the island shape, so
 //     the compositor itself sends every other click to whatever is underneath;
 //   * the cursor comes from the page's own mouse events, which only fire over
-//     the island — Ruth's eyes follow the pointer there, not across the screen.
+//     the island — Jimmy's eyes follow the pointer there, not across the screen.
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -23,7 +23,7 @@ use tauri::{AppHandle, WebviewWindow};
 use super::{home_dir, LocalTime};
 
 /// File name of the Claude Code relay.
-pub const HOOK_EXE: &str = "ruth-hook";
+pub const HOOK_EXE: &str = "jimmy-hook";
 
 /// Environment variable holding the home directory.
 pub const HOME_VAR: &str = "HOME";
@@ -39,16 +39,16 @@ fn xdg(var: &str, fallback: &str) -> PathBuf {
         .unwrap_or_else(|| home_dir().join(fallback))
 }
 
-/// ~/.config/ruth — preferences.
+/// ~/.config/jimmy — preferences.
 pub fn config_dir() -> PathBuf {
-    xdg("XDG_CONFIG_HOME", ".config").join("ruth")
+    xdg("XDG_CONFIG_HOME", ".config").join("jimmy")
 }
 
-/// ~/.local/share/ruth — where ruth-hook, the inbox and the log live. The
+/// ~/.local/share/jimmy — where jimmy-hook, the inbox and the log live. The
 /// relay has to sit at a stable path: an AppImage is mounted somewhere new on
 /// every launch.
 pub fn local_dir() -> PathBuf {
-    xdg("XDG_DATA_HOME", ".local/share").join("ruth")
+    xdg("XDG_DATA_HOME", ".local/share").join("jimmy")
 }
 
 /// Environment the webview must inherit, set before any thread or process
@@ -58,12 +58,12 @@ pub fn local_dir() -> PathBuf {
 /// keeps its plugin registry in ~/.cache/gstreamer-1.0 by default — the same
 /// file the system's GStreamer uses. The AppImage is mounted somewhere new on
 /// every launch, so each launch would rewrite the system's registry with
-/// plugin paths that vanish once Ruth quits. Give ours its own file.
+/// plugin paths that vanish once Jimmy quits. Give ours its own file.
 pub fn prepare_environment() {
     if std::env::var_os("APPIMAGE").is_none() || std::env::var_os("GST_REGISTRY").is_some() {
         return;
     }
-    let cache = xdg("XDG_CACHE_HOME", ".cache").join("ruth");
+    let cache = xdg("XDG_CACHE_HOME", ".cache").join("jimmy");
     if std::fs::create_dir_all(&cache).is_ok() {
         std::env::set_var("GST_REGISTRY", cache.join("gstreamer-registry.bin"));
     }
@@ -106,8 +106,8 @@ fn is_private_dir(dir: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Where ruth-hook finds us: `$XDG_RUNTIME_DIR/ruth.sock`, or
-/// `/run/user/<uid>/ruth.sock` when the variable is missing. A directory
+/// Where jimmy-hook finds us: `$XDG_RUNTIME_DIR/jimmy.sock`, or
+/// `/run/user/<uid>/jimmy.sock` when the variable is missing. A directory
 /// that is not ours and private means no relay at all — never a fallback to a
 /// shared place like /tmp. Must match `socket_path()` in hook/src/unix.rs
 /// exactly.
@@ -116,7 +116,7 @@ pub fn relay_socket_path() -> Option<PathBuf> {
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
         .unwrap_or_else(|| PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() })));
-    is_private_dir(&dir).then(|| dir.join("ruth.sock"))
+    is_private_dir(&dir).then(|| dir.join("jimmy.sock"))
 }
 
 // ── Processes ─────────────────────────────────────────────────────────────────
@@ -205,17 +205,17 @@ pub fn unblock_webview_drops(_app: &AppHandle) {}
 /// the keyboard. Must run before the window is first shown: a layer surface
 /// cannot be made out of a window the compositor already knows.
 ///
-/// Without layer-shell (GNOME, X11, or RUTH_LAYER_SHELL=0) the window stays
+/// Without layer-shell (GNOME, X11, or JIMMY_LAYER_SHELL=0) the window stays
 /// an ordinary always-on-top window that refuses focus; where it lands is then
 /// up to the window manager.
 pub fn make_non_activating(win: &WebviewWindow) {
     let Ok(gw) = win.gtk_window() else { return };
-    // RUTH_LAYER_SHELL=0 is the way out on a compositor where it misbehaves.
-    let wanted = std::env::var("RUTH_LAYER_SHELL").map(|v| v != "0").unwrap_or(true);
+    // JIMMY_LAYER_SHELL=0 is the way out on a compositor where it misbehaves.
+    let wanted = std::env::var("JIMMY_LAYER_SHELL").map(|v| v != "0").unwrap_or(true);
     let supported = unsafe { layer::gtk_layer_is_supported() } != 0;
     if !wanted || !supported || gw.is_realized() {
         let why = if !wanted {
-            "RUTH_LAYER_SHELL=0"
+            "JIMMY_LAYER_SHELL=0"
         } else if supported {
             "window already shown"
         } else {
@@ -233,7 +233,7 @@ pub fn make_non_activating(win: &WebviewWindow) {
     let ptr = gtk_window_ptr(&gw);
     unsafe {
         layer::gtk_layer_init_for_window(ptr);
-        layer::gtk_layer_set_namespace(ptr, c"ruth".as_ptr());
+        layer::gtk_layer_set_namespace(ptr, c"jimmy".as_ptr());
         layer::gtk_layer_set_layer(ptr, layer::LAYER_OVERLAY);
         // Top edge only: the compositor centres the surface horizontally.
         layer::gtk_layer_set_anchor(ptr, layer::EDGE_TOP, 1);
@@ -306,7 +306,7 @@ mod tests {
 
     #[test]
     fn only_a_private_directory_of_ours_can_hold_the_relay_socket() {
-        let base = std::env::temp_dir().join(format!("ruth-rt-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("jimmy-rt-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let dir = base.join("runtime");
         std::fs::create_dir_all(&dir).unwrap();
@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn private_dirs_are_closed_to_everyone_else() {
         use std::os::unix::fs::MetadataExt;
-        let dir = std::env::temp_dir().join(format!("ruth-priv-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("jimmy-priv-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();

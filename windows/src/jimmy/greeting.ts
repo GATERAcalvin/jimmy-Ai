@@ -1,4 +1,4 @@
-// The launch "ruth" — port of GreetingCanvasView.swift.
+// The launch "jimmy" — port of GreetingCanvasView.swift.
 // Everything is laid out in the same 640×150 reference space as on macOS.
 
 import { Sound } from "../core/sound";
@@ -250,7 +250,7 @@ function rr(x: CanvasRenderingContext2D, X: number, Y: number, W: number, H: num
   x.closePath();
 }
 
-function ruthPath(hw: number, hh: number): Path2D {
+function jimmyPath(hw: number, hh: number): Path2D {
   const n = 3.2;
   const p = new Path2D();
   const steps = 96;
@@ -330,7 +330,7 @@ function drawHandR(x: CanvasRenderingContext2D, hw: number, hh: number, p: Pose)
   x.restore();
 }
 
-function drawRuth(x: CanvasRenderingContext2D, p: Pose) {
+function drawJimmy(x: CanvasRenderingContext2D, p: Pose) {
   const hh = p.hb / 2;
   const hw = hh * ASP;
   if (hh <= 0.4) return;
@@ -453,7 +453,7 @@ function drawMinis(x: CanvasRenderingContext2D, alpha: number) {
     x.translate(cx + dx, cy + dy);
     x.scale(alpha, alpha);
     x.fillStyle = MINI_COLORS[i];
-    x.fill(ruthPath(5.3, 4));
+    x.fill(jimmyPath(5.3, 4));
     x.restore();
   });
 }
@@ -541,6 +541,6 @@ export class Greeting {
     }
 
     drawMinis(x, p.minis);
-    drawRuth(x, p);
+    drawJimmy(x, p);
   }
 }

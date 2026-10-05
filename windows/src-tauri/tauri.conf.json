@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Ruth",
+  "productName": "Jimmy",
   "version": "0.1.1",
-  "identifier": "com.gateracalvin.ruth",
+  "identifier": "com.gateracalvin.jimmy",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -18,7 +18,7 @@
     "windows": [
       {
         "label": "island",
-        "title": "Ruth",
+        "title": "Jimmy",
         "url": "index.html",
         "width": 240,
         "height": 6,
@@ -48,11 +48,11 @@
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ],
-    "resources": { "../target/release/ruth-hook.exe": "ruth-hook.exe" },
+    "resources": { "../target/release/jimmy-hook.exe": "jimmy-hook.exe" },
     "copyright": "© Gatera Caleb Calvin",
     "category": "DeveloperTool",
     "shortDescription": "Your Claude Code companion, at the top of your screen",
-    "longDescription": "Ruth sits at the top of your screen: it shows your Claude Code sessions and a few integrations, and lets you approve, answer, chat and drop files without leaving what you are doing.",
+    "longDescription": "Jimmy sits at the top of your screen: it shows your Claude Code sessions and a few integrations, and lets you approve, answer, chat and drop files without leaving what you are doing.",
     "windows": {
       "nsis": {
         "installMode": "currentUser",

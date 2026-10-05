@@ -7,8 +7,8 @@
       "rpm"
     ],
     "resources": {
-      "../target/release/ruth-hook.exe": null,
-      "../target/release/ruth-hook": "ruth-hook"
+      "../target/release/jimmy-hook.exe": null,
+      "../target/release/jimmy-hook": "jimmy-hook"
     },
     "linux": {
       "appimage": {
@@ -30,7 +30,7 @@
     "windows": [
       {
         "label": "island",
-        "title": "Ruth",
+        "title": "Jimmy",
         "url": "index.html",
         "width": 240,
         "height": 6,

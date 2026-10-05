@@ -11,7 +11,7 @@
 param(
   [ValidateSet("tiny", "tiny.en", "base", "base.en", "small", "small.en")]
   [string]$Model = "base",
-  [string]$Dest = (Join-Path $env:APPDATA "Ruth\voice")
+  [string]$Dest = (Join-Path $env:APPDATA "Jimmy\voice")
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,7 +34,7 @@ if ($existing) {
   # The "latest" release (v1.x.y) carries no files: the Windows builds are attached to
   # the separate build releases (b5130, ...). So take the newest release that has one.
   $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=30" `
-    -Headers @{ "User-Agent" = "ruth-setup" }
+    -Headers @{ "User-Agent" = "jimmy-setup" }
   $release = $null
   $asset = $null
   foreach ($r in $releases) {

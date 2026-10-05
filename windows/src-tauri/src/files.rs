@@ -1,4 +1,4 @@
-// Dropped files are copied into %LOCALAPPDATA%\Ruth\inbox so the original is
+// Dropped files are copied into %LOCALAPPDATA%\Jimmy\inbox so the original is
 // never touched and the copy survives the drag source going away.
 // The inbox is swept of anything older than a week, as on macOS.
 
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn ingest_copies_and_never_overwrites() {
-        let tmp = std::env::temp_dir().join(format!("ruth-test-{}", std::process::id()));
+        let tmp = std::env::temp_dir().join(format!("jimmy-test-{}", std::process::id()));
         std::fs::create_dir_all(&tmp).unwrap();
         let source = tmp.join("note.txt");
         std::fs::write(&source, b"hello").unwrap();

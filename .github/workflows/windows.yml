@@ -66,7 +66,7 @@ jobs:
           if ($tag -ne $cargo) { $bad += "Cargo.toml says $cargo" }
           if ($bad) { throw "tag says $tag but $($bad -join '; ')" }
 
-      # `npm run build` (run by tauri as beforeBuildCommand) builds ruth-hook
+      # `npm run build` (run by tauri as beforeBuildCommand) builds jimmy-hook
       # first, which tauri.conf.json then bundles as a resource. `pack` then
       # copies the installer out of target/ under its shipping name.
       - name: Build and pack the installer
@@ -85,21 +85,21 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'workflow_dispatch' || env.PUBLISH == 'true'
         with:
-          name: Ruth-Windows-setup
-          path: windows/release/Ruth-Windows-${{ steps.pack.outputs.version }}-setup.exe
+          name: Jimmy-Windows-setup
+          path: windows/release/Jimmy-Windows-${{ steps.pack.outputs.version }}-setup.exe
           retention-days: 3
 
       # The unsigned NSIS installer is what Defender false-positives on, so the
       # bare binaries go up as well. hooks.rs already falls back to looking for
-      # ruth-hook.exe next to ruth.exe, which is exactly this layout, so the
+      # jimmy-hook.exe next to jimmy.exe, which is exactly this layout, so the
       # portable pair runs with working Claude Code hooks and no installer.
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'workflow_dispatch' || env.PUBLISH == 'true'
         with:
-          name: Ruth-Windows-portable
+          name: Jimmy-Windows-portable
           path: |
-            windows/target/release/ruth.exe
-            windows/target/release/ruth-hook.exe
+            windows/target/release/jimmy.exe
+            windows/target/release/jimmy-hook.exe
           retention-days: 3
 
       - name: Publish the release
@@ -110,16 +110,16 @@ jobs:
         run: |
           $v = "${{ steps.pack.outputs.version }}"
           $notes = @"
-          Ruth for Windows $v — your Claude Code companion, at the top of your screen.
+          Jimmy for Windows $v — your Claude Code companion, at the top of your screen.
 
-          Download ``Ruth-Windows-$v-setup.exe`` and run it. The installer is not
+          Download ``Jimmy-Windows-$v-setup.exe`` and run it. The installer is not
           code-signed yet, so Windows SmartScreen shows a warning: click
           **More info → Run anyway**.
           "@
           # --latest=false keeps GitHub's "Latest" badge off Windows-only tags.
           gh release create "${{ github.ref_name }}" `
-            "release/Ruth-Windows-$v-setup.exe" `
-            --title "Ruth for Windows $v" `
+            "release/Jimmy-Windows-$v-setup.exe" `
+            --title "Jimmy for Windows $v" `
             --notes $notes `
             --latest=false
 
@@ -137,12 +137,12 @@ jobs:
             # from it gets an old tree.
             git tag -f windows-latest "${{ github.sha }}"
             git push -f origin windows-latest
-            gh release edit windows-latest --title "Ruth for Windows (latest)" --notes "Always the newest Windows build — currently $v."
-            gh release upload windows-latest "release/Ruth-Windows-setup.exe" --clobber
+            gh release edit windows-latest --title "Jimmy for Windows (latest)" --notes "Always the newest Windows build — currently $v."
+            gh release upload windows-latest "release/Jimmy-Windows-setup.exe" --clobber
           } else {
             gh release create windows-latest `
-              "release/Ruth-Windows-setup.exe" `
-              --title "Ruth for Windows (latest)" `
+              "release/Jimmy-Windows-setup.exe" `
+              --title "Jimmy for Windows (latest)" `
               --notes "Always the newest Windows build — currently $v." `
               --latest=false
           }

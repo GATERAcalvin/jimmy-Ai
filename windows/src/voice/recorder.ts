@@ -61,7 +61,7 @@ export class Recorder {
     await ctx.audioWorklet.addModule("/voice-worklet.js");
     if (!this.wanted) return;
 
-    const node = new AudioWorkletNode(ctx, "ruth-capture", { numberOfInputs: 1, numberOfOutputs: 0 });
+    const node = new AudioWorkletNode(ctx, "jimmy-capture", { numberOfInputs: 1, numberOfOutputs: 0 });
     node.port.onmessage = (e: MessageEvent<Float32Array>) => {
       if (this.wanted) this.chunks.push(e.data);
     };

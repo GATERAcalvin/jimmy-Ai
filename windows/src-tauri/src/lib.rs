@@ -1,4 +1,4 @@
-// Ruth for Windows — app wiring and the commands the island calls.
+// Jimmy for Windows — app wiring and the commands the island calls.
 
 mod claude;
 mod files;
@@ -72,13 +72,13 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
         (screen_changed, autostart_changed, voice_changed)
     };
     if let Err(err) = settings::save(&settings) {
-        eprintln!("[ruth] could not save settings: {err}");
+        eprintln!("[jimmy] could not save settings: {err}");
     }
     if autostart_changed {
         let manager = app.autolaunch();
         let result = if settings.autostart { manager.enable() } else { manager.disable() };
         if let Err(err) = result {
-            eprintln!("[ruth] autostart: {err}");
+            eprintln!("[jimmy] autostart: {err}");
         }
     }
     if screen_changed {
@@ -358,7 +358,7 @@ fn create_settings_window(app: &AppHandle) {
     let url = settings_page_url(app);
     match WebviewWindowBuilder::new(app, "settings", url)
         .additional_browser_args(BROWSER_ARGS)
-        .title("Settings — Ruth")
+        .title("Settings — Jimmy")
         .inner_size(560.0, 680.0)
         .min_inner_size(460.0, 480.0)
         .resizable(true)
@@ -397,6 +397,7 @@ fn open_settings_window(app: AppHandle) {
 
 pub fn run() {
     platform::prepare_environment();
+    settings::migrate_legacy_dirs();
     let loaded = settings::load();
     let gate = Arc::new(PollGate::new());
 
@@ -464,7 +465,7 @@ pub fn run() {
             gate.set_active(true);
             island::spawn_cursor_poll(handle.clone(), gate.clone());
 
-            log::line(format!("--- Ruth {} started ---", env!("CARGO_PKG_VERSION")));
+            log::line(format!("--- Jimmy {} started ---", env!("CARGO_PKG_VERSION")));
             hooks::ensure_hook_exe(&handle);
             voice::apply_hotkey(&handle, &loaded);
             pipe::start(handle.clone());
@@ -472,5 +473,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Ruth");
+        .expect("error while running Jimmy");
 }

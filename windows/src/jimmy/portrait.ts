@@ -1,4 +1,4 @@
-// Ruth's face: a stylised portrait drawn entirely in code (no images), in the
+// Jimmy's face: a stylised portrait drawn entirely in code (no images), in the
 // spirit of the reference picture: dark skin, a black durag, silver rectangular
 // glasses, heavy brows, a gold stud and a grey hoodie.
 //
@@ -44,13 +44,13 @@ export interface PortraitPose {
   pitch: number;
   /** Blink: 1 open … 0 closed. */
   open: number;
-  /** Eye scale (grows slightly when the pointer rests on Ruth). */
+  /** Eye scale (grows slightly when the pointer rests on Jimmy). */
   es: number;
   shape: EyeShape;
   /** Left and right brow (viewer's left first). */
   brows: [Brow, Brow];
   hoodie: RGB;
-  /** Mouth opening while Ruth speaks, 0…1. */
+  /** Mouth opening while Jimmy speaks, 0…1. */
   talk: number;
   /** Warm flush on the cheeks, 0…1. */
   blush: number;

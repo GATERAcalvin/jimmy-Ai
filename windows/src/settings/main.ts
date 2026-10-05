@@ -69,7 +69,7 @@ function claudeSection(status: HookStatus): HTMLElement {
       h("div", {
         class: "hint",
         text: status.installed
-          ? "Ruth is hooked into your Claude Code sessions. Tool calls, questions and permission requests show up in the island, and you can answer them there."
+          ? "Jimmy is hooked into your Claude Code sessions. Tool calls, questions and permission requests show up in the island, and you can answer them there."
           : "Install the hooks to see your Claude Code sessions in the island and approve permissions without leaving what you are doing.",
       }),
       h("div", { class: "row" },
@@ -86,7 +86,7 @@ function claudeSection(status: HookStatus): HTMLElement {
     if (!status.hookReady) {
       body.append(h("div", {
         class: "notice warn",
-        text: "ruth-hook.exe is not in place yet. Restart Ruth; if it still fails, build it with `cargo build -p ruth-hook`.",
+        text: "jimmy-hook.exe is not in place yet. Restart Jimmy; if it still fails, build it with `cargo build -p jimmy-hook`.",
       }));
     }
 
@@ -137,7 +137,7 @@ function claudeSection(status: HookStatus): HTMLElement {
         class: "hint",
         text: install
           ? "This is exactly what will change in your settings.json. Your own hooks are left untouched."
-          : "This removes Ruth's entries only. Your own hooks are left untouched.",
+          : "This removes Jimmy's entries only. Your own hooks are left untouched.",
       }),
       renderDiff(preview.diff),
       h("div", { class: "row" },
@@ -294,7 +294,7 @@ function integrationsSection(present: Record<string, boolean>): HTMLElement {
 
   function updateNote() {
     const used = settings.activeIntegrations.length;
-    note.textContent = `Pick up to ${MAX_ACTIVE} pills to show next to Ruth — ${used}/${MAX_ACTIVE} in use. Keys are stored in the Windows Credential Manager, never on disk.`;
+    note.textContent = `Pick up to ${MAX_ACTIVE} pills to show next to Jimmy — ${used}/${MAX_ACTIVE} in use. Keys are stored in the Windows Credential Manager, never on disk.`;
   }
 
   for (const def of INTEGRATIONS) {
@@ -660,7 +660,7 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
     h("h2", {}, dot, h("span", { text: "Voice" })),
     h("div", {
       class: "hint",
-      text: "Hold the hotkey, speak, let go. Ruth writes down what you said, asks Claude, and reads the answer aloud.",
+      text: "Hold the hotkey, speak, let go. Jimmy writes down what you said, asks Claude, and reads the answer aloud.",
     }),
     h("div", { class: "row" }, h("label", { text: "Voice" }), enabled),
     h("div", { class: "row" }, h("label", { text: "Hotkey" }), hotkey),
@@ -770,7 +770,7 @@ async function main() {
 
   clear(root);
   root.append(
-    h("h1", {}, h("span", { text: "Ruth" }), h("span", { class: "version", text: version })),
+    h("h1", {}, h("span", { text: "Jimmy" }), h("span", { class: "version", text: version })),
     claudeSection(status),
     apiSection(hasKey),
     voiceSection(voiceStatus),

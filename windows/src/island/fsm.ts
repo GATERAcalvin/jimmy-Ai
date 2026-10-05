@@ -1,7 +1,7 @@
 // Island open/close FSM — port of IslandStateMachine.swift.
 // No DOM, no Tauri: it only reports transitions.
 
-export type FsmState = "hidden" | "petit" | "home" | "ruth";
+export type FsmState = "hidden" | "petit" | "home" | "jimmy";
 
 export class IslandStateMachine {
   state: FsmState = "hidden";
@@ -12,9 +12,9 @@ export class IslandStateMachine {
   homeToPetitDelay = 15;
   /** petit → hidden delay, seconds. */
   petitToHiddenDelay = 60;
-  /** ruth → petit once the greeting animation ends (no hover). */
+  /** jimmy → petit once the greeting animation ends (no hover). */
   greetAutoCollapseDelay = 0.6;
-  /** ruth → petit while the mouse hovers the greeting. */
+  /** jimmy → petit while the mouse hovers the greeting. */
   greetHoverCollapseDelay = 10;
   /** An alert waiting for an answer stays open, even when the mouse leaves. */
   pinned = false;
@@ -27,7 +27,7 @@ export class IslandStateMachine {
 
   launch() {
     this.cancelTimers();
-    this.transition("ruth");
+    this.transition("jimmy");
   }
 
   mouseEntered() {
@@ -42,7 +42,7 @@ export class IslandStateMachine {
       case "home":
         this.clear("homeCollapse");
         break;
-      case "ruth":
+      case "jimmy":
         this.scheduleGreetCollapse(this.greetHoverCollapseDelay);
         break;
     }
@@ -58,7 +58,7 @@ export class IslandStateMachine {
       case "home":
         this.scheduleHomeCollapse();
         break;
-      case "ruth":
+      case "jimmy":
         this.clear("greetCollapse");
         this.transition("petit");
         break;
@@ -73,7 +73,7 @@ export class IslandStateMachine {
 
   /** Greeting animation finished (T.end). Doesn't override a running hover timer. */
   greetComplete() {
-    if (this.state !== "ruth") return;
+    if (this.state !== "jimmy") return;
     if (this.greetCollapse == null) this.scheduleGreetCollapse(this.greetAutoCollapseDelay);
   }
 
@@ -125,7 +125,7 @@ export class IslandStateMachine {
     this.clear("greetCollapse");
     this.greetCollapse = window.setTimeout(() => {
       this.greetCollapse = null;
-      if (this.state === "ruth") this.transition("petit");
+      if (this.state === "jimmy") this.transition("petit");
     }, delay * 1000);
   }
 
