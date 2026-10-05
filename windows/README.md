@@ -125,8 +125,9 @@ Notes:
   `whisper-bin-x64.zip`. If a download step fails, it says which file to fetch by hand.
 - On Linux it compiles, but global hotkeys (Wayland) and microphone access in the
   web view are untested.
-- Online models: transcription and screen questions use `gemini-2.5-flash`, speech uses
-  `gemini-2.5-flash-preview-tts`. Google renames models often; they are constants at
+- Online models: transcription and screen questions use `gemini-3.8-flash`, speech uses
+  `gemini-2.5-flash-preview-tts`. Google renames models often, so when one is retired
+  Jimmy asks the API for a current one by itself; the first choices are constants at
   the top of `src-tauri/src/gemini.rs`.
 
 ## Screen, listening, mail, alarms

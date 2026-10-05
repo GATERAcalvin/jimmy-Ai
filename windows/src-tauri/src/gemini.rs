@@ -10,9 +10,9 @@ use crate::secrets;
 
 pub const KEY: &str = "gemini-api-key";
 const BASE: &str = "https://generativelanguage.googleapis.com/v1beta/models";
-/// Model names are what Google changes most often: if a call fails with
-/// "model not found", update these.
-pub const TEXT_MODEL: &str = "gemini-2.5-flash";
+/// Model names are what Google changes most often. These are the first choice; when
+/// Google says one is gone, `discover` asks the API which models this key can use.
+pub const TEXT_MODEL: &str = "gemini-3.8-flash";
 pub const TTS_MODEL: &str = "gemini-2.5-flash-preview-tts";
 /// Gemini TTS returns raw 16-bit mono PCM at this rate.
 pub const VOICES: &[&str] = &["Kore", "Puck", "Charon", "Fenrir", "Aoede", "Leda", "Orus", "Zephyr"];
@@ -28,12 +28,83 @@ fn client(timeout: Duration) -> Result<reqwest::Client, String> {
 
 /// Posts a generateContent request and returns the parsed JSON.
 pub async fn generate(model: &str, body: Value, timeout: Duration) -> Result<Value, String> {
+    match generate_once(model, &body, timeout).await {
+        Err(err) if is_model_gone(&err) => {
+            let tts = model.contains("tts");
+            match discover(tts, model).await {
+                Some(found) => {
+                    crate::log::line(format!("gemini: {model} is unavailable; using {found}"));
+                    generate_once(&found, &body, timeout).await
+                }
+                None => Err(err),
+            }
+        }
+        other => other,
+    }
+}
+
+fn is_model_gone(err: &str) -> bool {
+    err.contains(" 404") || err.contains("no longer available") || err.contains("not found")
+}
+
+/// Asks which models this key may call and picks a current flash model
+/// (a speech model when `tts`), skipping `avoid`. Newest-looking name wins.
+async fn discover(tts: bool, avoid: &str) -> Option<String> {
+    let key = secrets::get(KEY)?;
+    let value: Value = client(Duration::from_secs(20))
+        .ok()?
+        .get(format!("{BASE}?pageSize=200"))
+        .header("x-goog-api-key", key)
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+    let names: Vec<String> = value
+        .get("models")?
+        .as_array()?
+        .iter()
+        .filter(|m| {
+            m.get("supportedGenerationMethods")
+                .and_then(Value::as_array)
+                .is_some_and(|a| a.iter().any(|x| x.as_str() == Some("generateContent")))
+        })
+        .filter_map(|m| m.get("name").and_then(Value::as_str))
+        .map(|n| n.trim_start_matches("models/").to_string())
+        .collect();
+    pick_model(&names, tts, avoid)
+}
+
+pub fn pick_model(names: &[String], tts: bool, avoid: &str) -> Option<String> {
+    let mut candidates: Vec<&String> = names
+        .iter()
+        .filter(|n| n.as_str() != avoid && n.contains("flash") && n.contains("tts") == tts)
+        .filter(|n| !n.contains("lite") && !n.contains("image") && !n.contains("live") && !n.contains("thinking"))
+        .collect();
+    // Prefer stable names over previews, then the highest version number.
+    candidates.sort_by(|a, b| {
+        let key = |n: &str| (!n.contains("preview") && !n.contains("exp"), version_of(n));
+        key(b).partial_cmp(&key(a)).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    candidates.first().map(|n| n.to_string())
+}
+
+/// The first "N.M" in a model name, as a number (gemini-3.8-flash → 3.8).
+fn version_of(name: &str) -> f32 {
+    name.split(|c: char| !(c.is_ascii_digit() || c == '.'))
+        .find(|p| p.chars().any(|c| c.is_ascii_digit()))
+        .and_then(|p| p.trim_matches('.').parse().ok())
+        .unwrap_or(0.0)
+}
+
+async fn generate_once(model: &str, body: &Value, timeout: Duration) -> Result<Value, String> {
     let key = secrets::get(KEY)
         .ok_or_else(|| "Gemini key missing. Add it in Settings → Voice.".to_string())?;
     let response = client(timeout)?
         .post(format!("{BASE}/{model}:generateContent"))
         .header("x-goog-api-key", key)
-        .json(&body)
+        .json(body)
         .send()
         .await
         .map_err(|e| format!("Network error: {e}"))?;
@@ -164,6 +235,18 @@ mod tests {
         assert_eq!(&w[36..40], b"data");
         assert_eq!(w.len(), 48);
         assert_eq!(u32::from_le_bytes(w[24..28].try_into().unwrap()), 24_000);
+    }
+
+    #[test]
+    fn picks_a_current_model_when_the_default_is_gone() {
+        let names: Vec<String> = [
+            "gemini-2.5-flash", "gemini-3.8-flash", "gemini-3.8-flash-lite", "gemini-4.0-flash-preview",
+            "gemini-3.8-flash-preview-tts", "gemini-2.5-flash-preview-tts", "gemini-3.8-pro",
+        ].iter().map(|s| s.to_string()).collect();
+        assert_eq!(pick_model(&names, false, "gemini-2.5-flash").as_deref(), Some("gemini-3.8-flash"));
+        assert_eq!(pick_model(&names, true, "x").as_deref(), Some("gemini-3.8-flash-preview-tts"));
+        assert_eq!(pick_model(&[], false, "x"), None);
+        assert!(is_model_gone("Gemini 404 Not Found: This model ... is no longer available to new users"));
     }
 
     #[test]
