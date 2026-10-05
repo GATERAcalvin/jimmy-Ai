@@ -6,6 +6,8 @@
 // exactly as on macOS, because this canvas draws its own.
 
 import { State } from "../core/state";
+import { browFor, drawPortrait, HOODIE_BASE } from "../ruth/portrait";
+import type { EyeShape } from "../ruth/engine";
 import {
   USC, eIn, eInOut, eOut, lerp, progressAt,
   type UploadEyeShape, type UploadFrame,
@@ -303,10 +305,14 @@ export class UploadCanvas {
 
     // Body.
     const bg = ctx.createLinearGradient(rx * 0.7, -ry * 0.9, -rx * 0.8, ry * 0.9);
-    bg.addColorStop(0, "#FFE3C2");
-    bg.addColorStop(1, "#E68A5C");
+    bg.addColorStop(0, "#E3E6EE");
+    bg.addColorStop(1, "#7F8799");
+    const boxA = Math.min(1, mc * 1.6);
+    ctx.save();
+    ctx.globalAlpha = boxA;
     ctx.fillStyle = bg;
     ctx.fill();
+    ctx.restore();
 
     // Edge shadow.
     const sg = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.3);
@@ -314,7 +320,9 @@ export class UploadCanvas {
     sg.addColorStop(0.62, "rgba(0,0,0,0)");
     sg.addColorStop(1, "rgba(0,0,0,0.12)");
     ctx.fillStyle = sg;
+    ctx.globalAlpha = boxA;
     ctx.fill();
+    ctx.globalAlpha = 1;
 
     // The body path is reused as a clip for everything drawn inside it.
     ctx.save();
@@ -364,14 +372,35 @@ export class UploadCanvas {
     const sp = R * 0.3;
     const lx = f.lookX * R * (0.34 - 0.08 * mc);
     const ly = f.lookY * R * (0.16 - 0.09 * mc);
-    for (const sd of [-1, 1]) {
-      ctx.save();
-      ctx.translate(sd * sp + lx, ey + ly);
-      drawEye(ctx, f.eye, ew, eh);
-      ctx.restore();
+    if (boxA > 0.02) {
+      ctx.globalAlpha = boxA;
+      for (const sd of [-1, 1]) {
+        ctx.save();
+        ctx.translate(sd * sp + lx, ey + ly);
+        drawEye(ctx, f.eye, ew, eh);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
     }
 
     ctx.restore(); // body clip
+
+    if (boxA < 0.98) {
+      const shape: EyeShape = f.eye === "content" ? "happy" : "pill";
+      drawPortrait(ctx, R * 1.15, {
+        yaw: f.lookX * 0.5, pitch: -f.lookY * 0.4,
+        open: 1, es: 1, shape,
+        brows: [browFor(shape, -1), browFor(shape, 1)],
+        hoodie: HOODIE_BASE, talk: 0, blush: 0, alpha: 1 - boxA,
+        eyeShape: (c, _s, w, h) => {
+          c.lineWidth = Math.max(0.8, w * 0.35);
+          c.lineCap = "round";
+          c.beginPath();
+          c.arc(0, h * 0.2, w * 0.7, Math.PI * 1.15, Math.PI * 1.85);
+          c.stroke();
+        },
+      });
+    }
     ctx.restore(); // transform
   }
 
