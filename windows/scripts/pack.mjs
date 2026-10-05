@@ -22,17 +22,17 @@ const PACKAGES = {
     {
       dir: "nsis",
       suffix: "-setup.exe",
-      names: [`Ruth-Windows-${version}-setup.exe`, "Ruth-Windows-setup.exe"],
+      names: [`Jimmy-Windows-${version}-setup.exe`, "Jimmy-Windows-setup.exe"],
     },
   ],
   linux: [
     {
       dir: "appimage",
       suffix: ".AppImage",
-      names: [`Ruth-Linux-${version}-${arch}.AppImage`, `Ruth-Linux-${arch}.AppImage`],
+      names: [`Jimmy-Linux-${version}-${arch}.AppImage`, `Jimmy-Linux-${arch}.AppImage`],
     },
-    { dir: "deb", suffix: ".deb", names: [`Ruth-Linux-${version}-${debArch}.deb`] },
-    { dir: "rpm", suffix: ".rpm", names: [`Ruth-Linux-${version}-${arch}.rpm`] },
+    { dir: "deb", suffix: ".deb", names: [`Jimmy-Linux-${version}-${debArch}.deb`] },
+    { dir: "rpm", suffix: ".rpm", names: [`Jimmy-Linux-${version}-${arch}.rpm`] },
   ],
 };
 

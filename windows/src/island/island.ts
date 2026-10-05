@@ -1,4 +1,4 @@
-// The island: DOM shell, sizing animation, Ruth placement, mouse handling.
+// The island: DOM shell, sizing animation, Jimmy placement, mouse handling.
 // Mirrors IslandRootView.swift + IslandWindowController.swift.
 
 import { Tracked, Spring, clamp } from "../core/anim";
@@ -11,9 +11,9 @@ import {
 } from "../core/layout";
 import { Sound } from "../core/sound";
 import { State } from "../core/state";
-import { BotEngine, hexToRGB } from "../ruth/engine";
-import { Greeting } from "../ruth/greeting";
-import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../ruth/minibots";
+import { BotEngine, hexToRGB } from "../jimmy/engine";
+import { Greeting } from "../jimmy/greeting";
+import { createMiniBot, pruneMiniBots, syncMiniBotStates, tickMiniBots } from "../jimmy/minibots";
 import { UploadCanvas } from "../upload/canvas";
 import { USC, UploadSeq } from "../upload/sequence";
 import { buildHeader, buildViews, type ViewActions, type ViewHost } from "../views/views";
@@ -182,7 +182,7 @@ export class Island {
     for (const v of this.views.values()) this.viewsEl.append(v.el);
     this.contentEl = h("div", { id: "content" }, this.header.el, this.viewsEl);
 
-    // The drop sequence draws the card, the bar and its own Ruth. It sits under
+    // The drop sequence draws the card, the bar and its own Jimmy. It sits under
     // the header, which stays visible on top of it exactly as on macOS.
     this.uploadCanvas = new UploadCanvas({
       ask: () => {
@@ -231,17 +231,17 @@ export class Island {
           this.setMode("hidden");
           break;
         case "petit":
-          if (from === "ruth") this.greeting.interrupt();
+          if (from === "jimmy") this.greeting.interrupt();
           else if (from === "hidden") Sound.play("peek");
           this.setMode("compact");
-          if (from === "ruth") State.view = State.defaultView();
+          if (from === "jimmy") State.view = State.defaultView();
           if (!this.wasInIsland) this.fsm.mouseLeft();
           break;
         case "home":
           this.expand(State.defaultView());
           if (!this.wasInIsland) this.fsm.mouseLeft();
           break;
-        case "ruth":
+        case "jimmy":
           this.expand("greeting");
           this.greeting.start();
           break;
@@ -380,7 +380,7 @@ export class Island {
   }
 
   /**
-   * Ruth eats the file. Nothing here waits on the file system: the copy into
+   * Jimmy eats the file. Nothing here waits on the file system: the copy into
    * the inbox runs in the background and swaps the path in when it lands, so a
    * slow disk can never stall the animation — same as FileDropHandler on macOS.
    */
@@ -422,7 +422,7 @@ export class Island {
 
   /**
    * Sounds and view changes hung off the canvas timeline: a `tick` every 10 %,
-   * the ✓ chime when the bar completes, then `choose` once Ruth has grown back.
+   * the ✓ chime when the bar completes, then `choose` once Jimmy has grown back.
    */
   private stepSequence() {
     const since = UploadSeq.sinceDrop();
@@ -586,7 +586,7 @@ export class Island {
       y >= rect.y - HIT_MARGIN && y <= rect.y + rect.h + HIT_MARGIN;
 
     if (inIsland && !this.wasInIsland) {
-      if (this.fsm.state === "ruth") this.greeting.hover();
+      if (this.fsm.state === "jimmy") this.greeting.hover();
       this.fsm.mouseEntered();
       this.homeCollapseAt = null;
     }
@@ -706,7 +706,7 @@ export class Island {
         this.greeting.draw(gctx);
       }
     } else {
-      // Kept running even while the drop canvas is up, so the island's own Ruth
+      // Kept running even while the drop canvas is up, so the island's own Jimmy
       // is already in the right place the moment the canvas fades out.
       this.drawBot(dt);
     }
@@ -750,7 +750,7 @@ export class Island {
     this.botSize.target = p.diameter / 0.6;
 
     const greetingActive = State.mode === "expanded" && State.view === "greeting";
-    // The drop canvas draws its own Ruth; two of them would overlap.
+    // The drop canvas draws its own Jimmy; two of them would overlap.
     const visible = p.opacity > 0 && !greetingActive && !this.uploadActive;
     this.botCanvas.style.opacity = visible ? "1" : "0";
 

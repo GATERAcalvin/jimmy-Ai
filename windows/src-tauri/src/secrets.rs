@@ -3,12 +3,14 @@
 
 use keyring::Entry;
 
-const SERVICE: &str = "com.gateracalvin.ruth";
+const SERVICE: &str = "com.gateracalvin.jimmy";
+/// What the app was called before it was renamed; keys saved then are carried over.
+const LEGACY_SERVICE: &str = "com.gateracalvin.ruth";
 
-/// Every key Ruth may store. Anything outside this list is refused.
+/// Every key Jimmy may store. Anything outside this list is refused.
 pub const KNOWN_KEYS: &[&str] = &[
     "anthropic-api-key",
-    "openai-api-key",
+    "gemini-api-key",
     "n8n-url",
     "n8n-api-key",
     "vercel-token",
@@ -27,7 +29,16 @@ fn entry(key: &str) -> Option<Entry> {
 }
 
 pub fn get(key: &str) -> Option<String> {
-    entry(key)?.get_password().ok().filter(|v| !v.is_empty())
+    if let Some(v) = entry(key)?.get_password().ok().filter(|v| !v.is_empty()) {
+        return Some(v);
+    }
+    // Saved under the old name? Move it across once.
+    let old = Entry::new(LEGACY_SERVICE, key).ok()?;
+    let v = old.get_password().ok().filter(|v| !v.is_empty())?;
+    if entry(key)?.set_password(&v).is_ok() {
+        let _ = old.delete_credential();
+    }
+    Some(v)
 }
 
 pub fn set(key: &str, value: &str) -> Result<(), String> {

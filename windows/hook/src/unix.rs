@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use crate::CONNECT_TIMEOUT;
 
-/// `$XDG_RUNTIME_DIR/ruth.sock`, or `/run/user/<uid>/ruth.sock` when the
+/// `$XDG_RUNTIME_DIR/jimmy.sock`, or `/run/user/<uid>/jimmy.sock` when the
 /// variable is missing (a hook started from a stripped-down environment). The
 /// directory must be ours and closed to everyone else, or there is no relay.
 /// Must match `platform::relay_socket_path()` in the app exactly.
@@ -23,7 +23,7 @@ fn socket_path() -> Option<PathBuf> {
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
         .unwrap_or_else(|| PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() })));
-    is_private_dir(&dir).then(|| dir.join("ruth.sock"))
+    is_private_dir(&dir).then(|| dir.join("jimmy.sock"))
 }
 
 /// A real directory (not a symlink), owned by us, no access for group or others.

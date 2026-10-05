@@ -1,6 +1,6 @@
-// Ruth — the character, drawn in code on Canvas 2D.
+// Jimmy — the character, drawn in code on Canvas 2D.
 // The animation engine (tweens, easings, particles) comes from the MIT-licensed
-// Coucou project by Louis Raillé; Ruth's body, face, palette and sounds are new.
+// Coucou project by Louis Raillé; Jimmy's body, face, palette and sounds are new.
 
 import { Ease, lerp, type EaseFn } from "../core/anim";
 import { Sound } from "../core/sound";
@@ -57,7 +57,7 @@ interface Particle {
   age: number; life: number; rot: number; size: number;
 }
 
-// ── Constants (RuthConst / PISTES.ruth) ─────────────────────────────────────
+// ── Constants (JimmyConst / PISTES.jimmy) ─────────────────────────────────────
 
 const EYE_W = 0.25;
 const EYE_H = 0.27;
@@ -169,7 +169,7 @@ export class BotEngine {
   speaking = false;
   private browL: Brow = { raise: 0, slope: 0.3 };
   private browR: Brow = { raise: 0, slope: 0.3 };
-  /** Solid body colour for mini bots / integration pills (null = Ruth gradient). */
+  /** Solid body colour for mini bots / integration pills (null = Jimmy gradient). */
   bodyColor: RGB | null = null;
 
   // Animated state (BotEngine `s`)
@@ -322,7 +322,7 @@ export class BotEngine {
     this.anim("roll", [[Math.PI * 2 * turns, durationMs, Ease.inOut]], () => { this.roll = 0; });
   }
 
-  /** Peek wave — the "ruth". Timings from BotEngine.greet(). */
+  /** Peek wave — the "jimmy". Timings from BotEngine.greet(). */
   greet() {
     const t = now();
     const tok = ++this.greetToken;
@@ -831,7 +831,7 @@ export class BotEngine {
       x.scale(fx, fy);
       this.drawEyeShape(x, shape, ew, eh, sd, ink);
       if (!this.isMini && (shape === "pill" || shape === "wide" || shape === "dot")) {
-        // Ruth's signature: a tiny light in each eye.
+        // Jimmy's signature: a tiny light in each eye.
         x.fillStyle = "rgba(255,255,255,0.92)";
         x.beginPath();
         x.arc(-ew * 0.16, -eh * 0.22 * Math.min(1, this.open + 0.2), ew * 0.15, 0, Math.PI * 2);

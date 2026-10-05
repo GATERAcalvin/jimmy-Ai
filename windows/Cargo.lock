@@ -1993,6 +1993,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "jimmy"
+version = "0.1.1"
+dependencies = [
+ "gtk",
+ "keyring",
+ "libc",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-single-instance",
+ "tokio",
+ "windows 0.61.3",
+]
+
+[[package]]
+name = "jimmy-hook"
+version = "0.1.1"
+dependencies = [
+ "libc",
+ "serde_json",
+ "windows 0.61.3",
+]
+
+[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3335,34 +3363,6 @@ name = "rustversion"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
-
-[[package]]
-name = "ruth"
-version = "0.1.1"
-dependencies = [
- "gtk",
- "keyring",
- "libc",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-single-instance",
- "tokio",
- "windows 0.61.3",
-]
-
-[[package]]
-name = "ruth-hook"
-version = "0.1.1"
-dependencies = [
- "libc",
- "serde_json",
- "windows 0.61.3",
-]
 
 [[package]]
 name = "ryu"

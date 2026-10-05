@@ -128,3 +128,55 @@ pub fn save(settings: &Settings) -> std::io::Result<()> {
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     std::fs::write(settings_path(), json)
 }
+
+/// Carries settings and downloaded voice files over from the app's old name
+/// (the folder was "Ruth"). Only runs when the new folder does not exist yet.
+pub fn migrate_legacy_dirs() {
+    for (new, name) in [(config_dir(), "Ruth"), (local_dir(), "Ruth")] {
+        if let Some(parent) = new.parent() {
+            let _ = copy_dir_if_new(&parent.join(name), &new);
+        }
+    }
+}
+
+pub(crate) fn copy_dir_if_new(old: &std::path::Path, new: &std::path::Path) -> std::io::Result<()> {
+    if !old.is_dir() || new.exists() || old == new {
+        return Ok(());
+    }
+    fn copy(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
+        std::fs::create_dir_all(to)?;
+        for e in std::fs::read_dir(from)? {
+            let e = e?;
+            let dest = to.join(e.file_name());
+            if e.file_type()?.is_dir() {
+                copy(&e.path(), &dest)?;
+            } else {
+                std::fs::copy(e.path(), dest)?;
+            }
+        }
+        Ok(())
+    }
+    copy(old, new)
+}
+
+#[cfg(test)]
+mod migrate_tests {
+    use super::*;
+
+    #[test]
+    fn copies_only_when_new_folder_is_missing() {
+        let base = std::env::temp_dir().join(format!("jimmy-mig-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let (old, new) = (base.join("Ruth"), base.join("Jimmy"));
+        std::fs::create_dir_all(old.join("voice")).unwrap();
+        std::fs::write(old.join("settings.json"), "{}").unwrap();
+        std::fs::write(old.join("voice").join("m.bin"), "x").unwrap();
+        copy_dir_if_new(&old, &new).unwrap();
+        assert!(new.join("settings.json").is_file());
+        assert!(new.join("voice").join("m.bin").is_file());
+        std::fs::write(new.join("settings.json"), "changed").unwrap();
+        copy_dir_if_new(&old, &new).unwrap();
+        assert_eq!(std::fs::read_to_string(new.join("settings.json")).unwrap(), "changed");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+}

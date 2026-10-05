@@ -1,5 +1,5 @@
 {
-  "name": "ruth-windows",
+  "name": "jimmy-windows",
   "private": true,
   "version": "0.1.1",
   "type": "module",
@@ -10,8 +10,8 @@
     "icons": "python scripts/icon-from-image.py",
     "icons:drawn": "node scripts/gen-icons.mjs",
     "tauri": "tauri",
-    "predev": "cargo build --release -p ruth-hook",
-    "prebuild": "cargo build --release -p ruth-hook",
+    "predev": "cargo build --release -p jimmy-hook",
+    "prebuild": "cargo build --release -p jimmy-hook",
     "pack": "tauri build && node scripts/pack.mjs"
   },
   "devDependencies": {

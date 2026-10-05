@@ -1,5 +1,5 @@
-// SoundEngine — plays Ruth's sounds through the Web Audio API.
-// The 28 WAVs are Ruth's own, synthesised by scripts/gen-sounds.py into
+// SoundEngine — plays Jimmy's sounds through the Web Audio API.
+// The 28 WAVs are Jimmy's own, synthesised by scripts/gen-sounds.py into
 // public/sounds and served at /sounds/<name>.wav. Default volume 0.12, slider range 0–0.2,
 // and several sounds may overlap.
 

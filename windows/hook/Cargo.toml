@@ -1,12 +1,12 @@
 [package]
-name = "ruth-hook"
-description = "Relays Claude Code hook events to Ruth over a named pipe (Windows) or a Unix socket (Linux)"
+name = "jimmy-hook"
+description = "Relays Claude Code hook events to Jimmy over a named pipe (Windows) or a Unix socket (Linux)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "ruth-hook"
+name = "jimmy-hook"
 path = "src/main.rs"
 
 [dependencies]

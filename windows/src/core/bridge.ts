@@ -15,7 +15,7 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T |
   try {
     return await invoke<T>(cmd, args);
   } catch (err) {
-    console.error(`[ruth] ${cmd} failed`, err);
+    console.error(`[jimmy] ${cmd} failed`, err);
     return null;
   }
 }
@@ -59,7 +59,7 @@ export const Bridge = {
 
   openSettingsWindow: () => call<void>("open_settings_window"),
 
-  /** Writes to %LOCALAPPDATA%\Ruth\ruth.log, next to the Rust lines. */
+  /** Writes to %LOCALAPPDATA%\Jimmy\jimmy.log, next to the Rust lines. */
   log: (message: string) => call<void>("log_line", { message }),
 
   // ── Claude Code hooks ─────────────────────────────────────────────────────
@@ -166,7 +166,7 @@ export interface HookPreview {
 
 /** Same as `call`, but surfaces the error so the UI can show what went wrong. */
 async function callOrThrow<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!IS_TAURI) throw new Error("not running inside Ruth");
+  if (!IS_TAURI) throw new Error("not running inside Jimmy");
   return invoke<T>(cmd, args);
 }
 

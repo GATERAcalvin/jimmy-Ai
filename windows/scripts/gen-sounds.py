@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Synthesises Ruth's 28 sound effects into public/sounds/*.wav.
+"""Synthesises Jimmy's 28 sound effects into public/sounds/*.wav.
 
 Everything is generated from scratch (soft marimba-like tones, glides and a
-little filtered noise), so the sounds are original to Ruth. No dependencies.
+little filtered noise), so the sounds are original to Jimmy. No dependencies.
 
     python3 scripts/gen-sounds.py
 """

@@ -1,13 +1,13 @@
 [package]
-name = "ruth"
-description = "Ruth for Windows and Linux — Ruth lives at the top of your screen"
+name = "jimmy"
+description = "Jimmy for Windows and Linux — Jimmy lives at the top of your screen"
 authors = ["Gatera Caleb Calvin"]
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "ruth_lib"
+name = "jimmy_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

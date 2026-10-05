@@ -23,7 +23,7 @@ use super::LocalTime;
 use crate::island::WINDOW_LABEL;
 
 /// File name of the Claude Code relay.
-pub const HOOK_EXE: &str = "ruth-hook.exe";
+pub const HOOK_EXE: &str = "jimmy-hook.exe";
 
 /// Environment variable holding the home directory.
 pub const HOME_VAR: &str = "USERPROFILE";
@@ -33,20 +33,20 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 // ── Files ─────────────────────────────────────────────────────────────────────
 
-/// %APPDATA%\Ruth — preferences.
+/// %APPDATA%\Jimmy — preferences.
 pub fn config_dir() -> PathBuf {
     let base = std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("Ruth")
+    base.join("Jimmy")
 }
 
-/// %LOCALAPPDATA%\Ruth — where ruth-hook.exe, the inbox and the log live.
+/// %LOCALAPPDATA%\Jimmy — where jimmy-hook.exe, the inbox and the log live.
 pub fn local_dir() -> PathBuf {
     let base = std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("Ruth")
+    base.join("Jimmy")
 }
 
 /// %APPDATA% and %LOCALAPPDATA% are already private to the user.
@@ -105,8 +105,8 @@ pub fn find_on_path(stem: &str) -> Option<PathBuf> {
 // ── Who we are ────────────────────────────────────────────────────────────────
 //
 // Named pipes share one machine-wide namespace, so the SID in the name is what
-// keeps two accounts on the same machine from ever meeting on `ruth-*`.
-// ruth-hook computes the same string (hook/src/win.rs) and additionally checks
+// keeps two accounts on the same machine from ever meeting on `jimmy-*`.
+// jimmy-hook computes the same string (hook/src/win.rs) and additionally checks
 // that the process serving the pipe really is us.
 
 /// The SID of the account this process runs as, as `S-1-5-21-…`.

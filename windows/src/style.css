@@ -1,4 +1,4 @@
-/* Ruth for Windows — same palette, sizes and type scale as the macOS island.
+/* Jimmy for Windows — same palette, sizes and type scale as the macOS island.
    Every colour below is copied from the Swift views. */
 
 :root {
@@ -165,7 +165,7 @@ body {
   transition: opacity 0.25s ease-in-out;
 }
 
-/* A mini Ruth: the slot is the body, the canvas is larger and overflows it so
+/* A mini Jimmy: the slot is the body, the canvas is larger and overflows it so
    hands, badges and particles are not cut off. */
 .mini {
   position: relative;

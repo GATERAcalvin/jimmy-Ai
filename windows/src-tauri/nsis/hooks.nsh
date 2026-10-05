@@ -1,6 +1,6 @@
 ; Uninstall hooks for the NSIS installer.
 ;
-; The app stages ruth-hook.exe into %LOCALAPPDATA%\Ruth\bin at launch, so the
+; The app stages jimmy-hook.exe into %LOCALAPPDATA%\Jimmy\bin at launch, so the
 ; installer never recorded it and the default uninstaller leaves it behind. The
 ; inbox and the log live in the same place and are ours too.
 ;
@@ -11,7 +11,7 @@
 ; printing anything, so a leftover entry costs nothing beyond a dead path.
 
 !macro NSIS_HOOK_PREUNINSTALL
-  RMDir /r "$LOCALAPPDATA\Ruth\bin"
-  RMDir /r "$LOCALAPPDATA\Ruth\inbox"
-  Delete "$LOCALAPPDATA\Ruth\ruth.log"
+  RMDir /r "$LOCALAPPDATA\Jimmy\bin"
+  RMDir /r "$LOCALAPPDATA\Jimmy\inbox"
+  Delete "$LOCALAPPDATA\Jimmy\jimmy.log"
 !macroend
