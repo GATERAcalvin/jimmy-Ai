@@ -25,7 +25,7 @@ class SpeakerEngine {
     const speech = await Bridge.voiceSynthesize(text);
     if (token !== this.token) return { engine: speech.engine }; // stopped while we waited
 
-    if (speech.engine === "openai" && speech.audio) {
+    if (speech.engine === "gemini" && speech.audio) {
       await this.playAudio(speech.audio, token);
     } else {
       await this.speakWithSystemVoice(speech.text, token, opts.offlineVoice);

@@ -8,6 +8,8 @@ import { Island } from "./island/island";
 import { registerHookHandlers } from "./island/hooks";
 import { registerIntegrationHandlers, refreshConfigured } from "./island/integrations";
 import { Voice } from "./voice/voice";
+import { Listen } from "./voice/listen";
+import { initAlarms } from "./assist/ringer";
 
 async function main() {
   const root = document.getElementById("root");
@@ -75,6 +77,21 @@ async function main() {
       State.isPinned = false;
       island.dropPin();
     },
+  });
+
+  // Short messages from listen mode ("Listening…", "Stopped.").
+  Listen.init((message) => {
+    State.noteMessage = message;
+    State.view = "note";
+    State.isPinned = false;
+    State.notify();
+    island.alert("note");
+  });
+
+  // Alarms ring here when Rust says one is due.
+  await initAlarms({
+    show: () => island.alert("note"),
+    release: () => island.dropPin(),
   });
 
   island.launch();

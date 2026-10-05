@@ -373,7 +373,7 @@ const VOICE_LANGUAGES: [string, string][] = [
   ["ar", "Arabic"],
 ];
 
-const ONLINE_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+const ONLINE_VOICES = ["Kore", "Puck", "Charon", "Fenrir", "Aoede", "Leda", "Orus", "Zephyr"];
 
 function voiceSection(initial: VoiceStatus | null): HTMLElement {
   let status = initial;
@@ -435,11 +435,11 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
     void save();
   });
 
-  // Online: OpenAI -------------------------------------------------------------
+  // Online: Gemini -------------------------------------------------------------
 
   const keyField = h("input", {
     type: "password",
-    placeholder: "sk-...",
+    placeholder: "AIza...",
     style: "flex:1 1 auto;min-width:0",
     autocomplete: "off",
     spellcheck: "false",
@@ -453,7 +453,7 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
     if (!value) return;
     clear(keyFeedback);
     try {
-      await Bridge.secretSet("openai-api-key", value);
+      await Bridge.secretSet("gemini-api-key", value);
       keyField.value = "";
       keyFeedback.append(h("div", { class: "notice ok", text: "Saved in the Windows Credential Manager." }));
       await refresh();
@@ -464,7 +464,7 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
   keyClear.addEventListener("click", async () => {
     clear(keyFeedback);
     try {
-      await Bridge.secretClear("openai-api-key");
+      await Bridge.secretClear("gemini-api-key");
       keyFeedback.append(h("div", { class: "notice ok", text: "Key removed." }));
       await refresh();
     } catch (err) {
@@ -474,9 +474,7 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
 
   const onlineVoice = h("select", {}) as HTMLSelectElement;
   for (const v of ONLINE_VOICES) onlineVoice.append(h("option", { value: v, text: v }));
-  if (!ONLINE_VOICES.includes(settings.ttsVoice)) {
-    onlineVoice.append(h("option", { value: settings.ttsVoice, text: settings.ttsVoice }));
-  }
+  if (!ONLINE_VOICES.includes(settings.ttsVoice)) settings.ttsVoice = "Kore"; // an old OpenAI voice name
   onlineVoice.value = settings.ttsVoice;
   onlineVoice.addEventListener("change", () => {
     settings.ttsVoice = onlineVoice.value;
@@ -533,7 +531,7 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
       const { engine } = await Speaker.speak("Hello! Voice is working.", {
         offlineVoice: settings.offlineVoice,
       });
-      testOut.textContent = `Spoken with: ${engine === "openai" ? "OpenAI (online)" : "a system voice (offline)"}.`;
+      testOut.textContent = `Spoken with: ${engine === "gemini" ? "Gemini (online)" : "a system voice (offline)"}.`;
     } catch (err) {
       testOut.textContent = `Could not speak: ${String(err).replace(/^Error:\s*/, "")}`;
     }
@@ -558,7 +556,7 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
     testOut.textContent = "Transcribing…";
     try {
       const t = await Bridge.voiceTranscribe(r.wav);
-      const how = t.engine === "openai" ? "OpenAI (online)" : "whisper.cpp (offline)";
+      const how = t.engine === "gemini" ? "Gemini (online)" : "whisper.cpp (offline)";
       testOut.textContent = t.text ? `Heard via ${how}: “${t.text}”` : `Heard nothing via ${how}.`;
     } catch (err) {
       testOut.textContent = String(err).replace(/^Error:\s*/, "");
@@ -584,13 +582,13 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
   // Rendering ------------------------------------------------------------------
 
   function renderHints() {
-    const online = status?.openaiKey ?? false;
+    const online = status?.geminiKey ?? false;
     const offline = status?.offlineReady ?? false;
     const m = settings.voiceMode;
     if (m === "online") {
       modeHint.textContent = online
-        ? "Everything goes through OpenAI. Needs an internet connection."
-        : "Online only, but no OpenAI key is saved yet.";
+        ? "Everything goes through Gemini. Needs an internet connection."
+        : "Online only, but no Gemini key is saved yet.";
     } else if (m === "offline") {
       modeHint.textContent = offline
         ? "Speech is transcribed on this computer, and answers use a system voice. No audio leaves it."
@@ -600,9 +598,9 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
     } else if (online) {
       modeHint.textContent = "Using online. Set up the offline engine to keep working without internet.";
     } else if (offline) {
-      modeHint.textContent = "Using offline. Add an OpenAI key for a more natural voice and better accuracy.";
+      modeHint.textContent = "Using offline. Add a Gemini key for a more natural voice and better accuracy.";
     } else {
-      modeHint.textContent = "Nothing is ready yet: save an OpenAI key, or set up the offline engine.";
+      modeHint.textContent = "Nothing is ready yet: save a Gemini key, or set up the offline engine.";
     }
   }
 
@@ -631,12 +629,12 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
   async function refresh() {
     status = (await Bridge.voiceStatus()) ?? status;
     if (!status) return;
-    dot.style.background = status.openaiKey || status.offlineReady ? "#22c55e" : "#f4505e";
-    keyState.textContent = status.openaiKey
+    dot.style.background = status.geminiKey || status.offlineReady ? "#22c55e" : "#f4505e";
+    keyState.textContent = status.geminiKey
       ? "Key saved in the Windows Credential Manager."
       : "No key saved. Optional if you only use offline.";
-    keyField.placeholder = status.openaiKey ? "••••••••••••  (stored)" : "sk-...";
-    keyClear.style.display = status.openaiKey ? "" : "none";
+    keyField.placeholder = status.geminiKey ? "••••••••••••  (stored)" : "AIza...";
+    keyClear.style.display = status.geminiKey ? "" : "none";
 
     hotkeyLine.className = "hint";
     if (!settings.voiceEnabled) {
@@ -652,7 +650,7 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
     renderOffline();
   }
   void refresh();
-  keyClear.style.display = initial?.openaiKey ? "" : "none";
+  keyClear.style.display = initial?.geminiKey ? "" : "none";
 
   return h(
     "section",
@@ -660,7 +658,7 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
     h("h2", {}, dot, h("span", { text: "Voice" })),
     h("div", {
       class: "hint",
-      text: "Hold the hotkey, speak, let go. Jimmy writes down what you said, asks Claude, and reads the answer aloud.",
+      text: "Hold the hotkey, speak, let go. Jimmy writes down what you said, asks Claude, and reads the answer aloud. One Gemini key covers hearing and speaking.",
     }),
     h("div", { class: "row" }, h("label", { text: "Voice" }), enabled),
     h("div", { class: "row" }, h("label", { text: "Hotkey" }), hotkey),
@@ -670,9 +668,9 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
     h("div", { class: "row" }, h("label", { text: "Language" }), language),
     h("div", { class: "row" }, h("label", { text: "Speak replies" }), speak),
 
-    h("div", { class: "hint", style: "font-weight:600;margin-top:12px", text: "Online (OpenAI)" }),
+    h("div", { class: "hint", style: "font-weight:600;margin-top:12px", text: "Online (Gemini)" }),
     keyState,
-    h("div", { class: "row" }, h("label", { text: "OpenAI key" }), keyField, keySave, keyClear),
+    h("div", { class: "row" }, h("label", { text: "Gemini key" }), keyField, keySave, keyClear),
     keyFeedback,
     h("div", { class: "row" }, h("label", { text: "Voice" }), onlineVoice),
 
@@ -684,6 +682,163 @@ function voiceSection(initial: VoiceStatus | null): HTMLElement {
 
     h("div", { class: "row", style: "margin-top:12px" }, testMic, testVoice),
     testOut,
+  );
+}
+
+// ── Assistant section: screen, listening, e-mail & calendar, alarms ───────────
+
+function hotkeyInput(get: () => string, set: (v: string) => void): HTMLInputElement {
+  const input = h("input", {
+    type: "text", value: get(), spellcheck: "false", autocomplete: "off", style: "width:170px",
+  }) as HTMLInputElement;
+  input.addEventListener("change", () => {
+    const v = input.value.trim();
+    if (!v) {
+      input.value = get();
+      return;
+    }
+    set(v);
+    void save();
+  });
+  return input;
+}
+
+function secretRow(label: string, key: string, placeholder: string, onChange: () => void): HTMLElement {
+  const field = h("input", {
+    type: "password", placeholder, style: "flex:1 1 auto;min-width:0", autocomplete: "off", spellcheck: "false",
+  }) as HTMLInputElement;
+  const saveBtn = h("button", { class: "primary", text: "Save" });
+  const state = h("span", { class: "hint" });
+  async function refresh() {
+    const present = (await Bridge.secretPresent(key)) ?? false;
+    field.placeholder = present ? "••••••••••••  (stored)" : placeholder;
+    state.textContent = present ? "saved" : "";
+  }
+  saveBtn.addEventListener("click", async () => {
+    const value = field.value.trim();
+    if (!value) return;
+    try {
+      await Bridge.secretSet(key, value);
+      field.value = "";
+    } catch (err) {
+      state.textContent = `Could not save: ${String(err)}`;
+    }
+    await refresh();
+    onChange();
+  });
+  void refresh();
+  return h("div", { class: "row" }, h("label", { text: label }), field, saveBtn, state);
+}
+
+function assistSection(): HTMLElement {
+  const screenKey = hotkeyInput(() => settings.screenHotkey, (v) => (settings.screenHotkey = v));
+  const listenKey = hotkeyInput(() => settings.listenHotkey, (v) => (settings.listenHotkey = v));
+
+  // Google ----------------------------------------------------------------------
+  const googleState = h("div", { class: "hint" });
+  const googleFeedback = h("div", {});
+  const connect = h("button", { class: "primary", text: "Connect Google" });
+  const disconnect = h("button", { class: "danger", text: "Disconnect" });
+  async function refreshGoogle() {
+    const g = await Bridge.googleStatus();
+    googleState.textContent = g?.connected
+      ? "Connected: Jimmy can read your unread mail and your calendar (read only)."
+      : g?.configured
+        ? "Client saved. Press Connect Google and approve in the browser."
+        : "Not set up yet. Paste your OAuth client ID and secret below.";
+    connect.style.display = g?.connected ? "none" : "";
+    disconnect.style.display = g?.connected ? "" : "none";
+  }
+  connect.addEventListener("click", async () => {
+    clear(googleFeedback);
+    googleFeedback.append(h("div", { class: "notice", text: "Waiting for you to approve in the browser…" }));
+    try {
+      await Bridge.googleConnect();
+      clear(googleFeedback);
+      googleFeedback.append(h("div", { class: "notice ok", text: "Connected." }));
+    } catch (err) {
+      clear(googleFeedback);
+      googleFeedback.append(h("div", { class: "notice err", text: String(err).replace(/^Error:\s*/, "") }));
+    }
+    await refreshGoogle();
+  });
+  disconnect.addEventListener("click", async () => {
+    await Bridge.googleDisconnect().catch(() => {});
+    await refreshGoogle();
+  });
+  void refreshGoogle();
+
+  // Alarms ----------------------------------------------------------------------
+  const list = h("div", {});
+  const when = h("input", { type: "time", value: "07:00", style: "width:110px" }) as HTMLInputElement;
+  const label = h("input", { type: "text", placeholder: "Label (optional)", style: "flex:1 1 auto;min-width:0" }) as HTMLInputElement;
+  const repeat = h("select", {}) as HTMLSelectElement;
+  repeat.append(
+    h("option", { value: "none", text: "Once" }),
+    h("option", { value: "daily", text: "Every day" }),
+    h("option", { value: "weekdays", text: "Weekdays" }),
+  );
+  const add = h("button", { class: "primary", text: "Add alarm" });
+  async function refreshAlarms() {
+    const alarms = (await Bridge.alarmList()) ?? [];
+    clear(list);
+    if (!alarms.length) list.append(h("div", { class: "hint", text: "No alarms set." }));
+    for (const a of alarms) {
+      const remove = h("button", { class: "danger", text: "Remove" });
+      remove.addEventListener("click", async () => {
+        await Bridge.alarmRemove(a.id).catch(() => {});
+        await refreshAlarms();
+      });
+      const at = new Date(a.atMs);
+      const text = `${at.toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}  ·  ${a.label}${a.repeat === "none" ? "" : `  ·  ${a.repeat}`}`;
+      list.append(h("div", { class: "row" }, h("span", { style: "flex:1 1 auto", text }), remove));
+    }
+  }
+  add.addEventListener("click", async () => {
+    const [hh, mm] = when.value.split(":").map(Number);
+    if (Number.isNaN(hh) || Number.isNaN(mm)) return;
+    const at = new Date();
+    at.setHours(hh, mm, 0, 0);
+    if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);
+    await Bridge.alarmAdd(label.value.trim() || "Alarm", at.getTime(), repeat.value as "none" | "daily" | "weekdays").catch(() => {});
+    label.value = "";
+    await refreshAlarms();
+  });
+  void refreshAlarms();
+  window.setInterval(() => void refreshAlarms(), 15_000);
+
+  return h(
+    "section",
+    {},
+    h("h2", {}, statusDot(true), h("span", { text: "Assistant" })),
+    h("div", {
+      class: "hint",
+      text: "Hold the screen key and speak: Jimmy looks at your screen and answers. Tap it with nothing said and Jimmy works out what you need. " +
+        "Listen mode keeps a short written record of what the microphone hears, so a question can use it. It is held in memory only, never saved, and the Windows microphone indicator is on while it runs.",
+    }),
+    h("div", { class: "row" }, h("label", { text: "Ask about screen" }), screenKey),
+    h("div", { class: "row" }, h("label", { text: "Listen on/off" }), listenKey),
+    h("div", { class: "hint", text: "Say \"read my screen\", \"read my WhatsApp\" (open WhatsApp Web first), or \"summarise my emails\" any time." }),
+
+    h("div", { class: "hint", style: "font-weight:600;margin-top:12px", text: "E-mail and calendar (Google)" }),
+    googleState,
+    h("div", {
+      class: "hint",
+      text: "Create a free OAuth client of type Desktop app at console.cloud.google.com (enable the Gmail and Calendar APIs), then paste its ID and secret.",
+    }),
+    secretRow("Client ID", "google-client-id", "...apps.googleusercontent.com", () => void refreshGoogle()),
+    secretRow("Client secret", "google-client-secret", "GOCSPX-...", () => void refreshGoogle()),
+    h("div", { class: "row" }, connect, disconnect),
+    googleFeedback,
+    h("div", {
+      class: "hint",
+      text: "WhatsApp and Instagram have no official way to read a personal account's messages, so Jimmy reads them off the screen instead (the web versions, open in a browser).",
+    }),
+
+    h("div", { class: "hint", style: "font-weight:600;margin-top:12px", text: "Alarms" }),
+    h("div", { class: "hint", text: "You can also just say \"wake me at 6:30\" or \"remind me in an hour to stretch\". Jimmy has to be running to ring, so turn on Start with Windows." }),
+    list,
+    h("div", { class: "row" }, when, label, repeat, add),
   );
 }
 
@@ -774,6 +929,7 @@ async function main() {
     claudeSection(status),
     apiSection(hasKey),
     voiceSection(voiceStatus),
+    assistSection(),
     integrationsSection(present),
     generalSection(),
     h("div", {
