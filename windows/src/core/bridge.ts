@@ -99,6 +99,21 @@ export const Bridge = {
   voiceSynthesize: (text: string) => callOrThrow<Speech>("voice_synthesize", { text }),
   voiceStatus: () => call<VoiceStatus>("voice_status"),
 
+  // ── Assist: screen, alarms, Google ────────────────────────────────────────
+  /** Ask Gemini, optionally with a screenshot, plus a transcript of what was heard. */
+  assistAsk: (prompt: string, screen: boolean, heard: string) =>
+    callOrThrow<string>("assist_ask", { prompt, screen, heard }),
+  alarmList: () => call<Alarm[]>("alarm_list"),
+  alarmAdd: (label: string, atMs: number, repeat: AlarmRepeat) =>
+    callOrThrow<Alarm>("alarm_add", { label, atMs, repeat }),
+  /** One alarm, or all of them when no id. Resolves to how many were removed. */
+  alarmRemove: (id?: number) => callOrThrow<number>("alarm_remove", { id: id ?? null }),
+  googleStatus: () => call<GoogleStatus>("google_status"),
+  googleConnect: () => callOrThrow<void>("google_connect"),
+  googleDisconnect: () => callOrThrow<void>("google_disconnect"),
+  googleUnread: (max: number) => callOrThrow<Mail[]>("google_unread", { max }),
+  googleEvents: (from: string, to: string) => callOrThrow<CalEvent[]>("google_events", { from, to }),
+
   // ── Integrations ──────────────────────────────────────────────────────────
   refreshIntegration: (id: string) => call<void>("refresh_integration", { id }),
   /** Opens the configured n8n instance in the browser. */
@@ -121,12 +136,12 @@ export type ChatContext =
 
 export interface Transcript {
   text: string;
-  /** "openai" or "whisper.cpp". */
+  /** "gemini" or "whisper.cpp". */
   engine: string;
 }
 
 export interface Speech {
-  /** "openai" (audio attached) or "system" (speak `text` with a system voice). */
+  /** "gemini" (audio attached) or "system" (speak `text` with a system voice). */
   engine: string;
   audio: string | null;
   mime: string;
@@ -134,13 +149,42 @@ export interface Speech {
 }
 
 export interface VoiceStatus {
-  openaiKey: boolean;
+  geminiKey: boolean;
   offlineReady: boolean;
   whisperCli: string | null;
   whisperModel: string | null;
   voiceDir: string;
   hotkeyRegistered: string | null;
   hotkeyError: string | null;
+}
+
+export type AlarmRepeat = "none" | "daily" | "weekdays";
+
+export interface Alarm {
+  id: number;
+  label: string;
+  /** Milliseconds since 1970. */
+  atMs: number;
+  repeat: AlarmRepeat;
+}
+
+export interface GoogleStatus {
+  configured: boolean;
+  connected: boolean;
+}
+
+export interface Mail {
+  from: string;
+  subject: string;
+  date: string;
+  snippet: string;
+}
+
+export interface CalEvent {
+  title: string;
+  start: string;
+  end: string;
+  location: string;
 }
 
 export interface DroppedFile {

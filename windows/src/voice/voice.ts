@@ -8,7 +8,8 @@
 import { Bridge, onEvent } from "../core/bridge";
 import { Sound } from "../core/sound";
 import { State, type VoicePhase } from "../core/state";
-import { askClaude, isChatBusy } from "../views/chat";
+import { askAboutScreen, askClaude, isChatBusy } from "../views/chat";
+import { Listen } from "./listen";
 import { Recorder } from "./recorder";
 import { Speaker } from "./speaker";
 
@@ -32,6 +33,8 @@ class VoiceController {
   private turn = 0;
   /** True while the recording is being closed, so a double release is ignored. */
   private stopping = false;
+  /** This turn was started with the screen hotkey: look at the screen as well. */
+  private screenMode = false;
 
   get phase(): VoicePhase {
     return State.voicePhase;
@@ -42,8 +45,11 @@ class VoiceController {
     State.voiceToggle = () => this.toggle();
     this.recorder.onLimit = () => void this.release();
     await onEvent<string>("voice-ptt", (phase) => {
-      if (phase === "down") void this.press();
+      if (phase === "down") void this.press(false);
       else if (phase === "up") void this.release();
+      else if (phase === "screen-down") void this.press(true);
+      else if (phase === "screen-up") void this.release();
+      else if (phase === "listen") Listen.toggle();
     });
   }
 
@@ -51,7 +57,7 @@ class VoiceController {
   toggle() {
     if (this.phase === "listening") void this.release();
     else if (this.phase === "speaking") this.interrupt();
-    else if (this.phase === "idle") void this.press();
+    else if (this.phase === "idle") void this.press(false);
   }
 
   /** Stops the answer being spoken. */
@@ -61,7 +67,7 @@ class VoiceController {
 
   // ── Press: start listening ──────────────────────────────────────────────────
 
-  private async press() {
+  private async press(screen: boolean) {
     if (!State.settings.voiceEnabled || !this.host) return;
     if (this.phase === "listening") return; // key auto-repeat
     // Barge-in: talking over the answer cuts it off.
@@ -74,6 +80,7 @@ class VoiceController {
     }
 
     const turn = ++this.turn;
+    this.screenMode = screen;
     this.set("listening");
     State.isPinned = true;
     this.host.openChat();
@@ -103,7 +110,10 @@ class VoiceController {
       this.stopping = false;
     }
     if (turn !== this.turn) return;
-    if (!rec || rec.seconds < MIN_SECONDS || rec.peak < MIN_PEAK) {
+    const screen = this.screenMode;
+    const silent = !rec || rec.seconds < MIN_SECONDS || rec.peak < MIN_PEAK;
+    // A tap on the screen key with nothing said means "answer what you see and hear".
+    if (silent && !screen) {
       this.fail("I didn't hear anything. Hold the key while you speak, then let go.");
       return;
     }
@@ -113,26 +123,30 @@ class VoiceController {
     State.notify();
     Sound.play("send");
 
-    let text: string;
-    try {
-      const transcript = await Bridge.voiceTranscribe(rec.wav);
-      text = transcript.text.trim();
-      void Bridge.log(`voice: heard ${text.length} characters via ${transcript.engine}`);
-    } catch (err) {
-      if (turn === this.turn) this.fail(errorText(err));
-      return;
+    let text = "";
+    if (rec && !silent) {
+      try {
+        const transcript = await Bridge.voiceTranscribe(rec.wav);
+        text = transcript.text.trim();
+        void Bridge.log(`voice: heard ${text.length} characters via ${transcript.engine}`);
+      } catch (err) {
+        if (turn === this.turn) this.fail(errorText(err));
+        return;
+      }
     }
     if (turn !== this.turn) return;
-    if (!text) {
+    if (!text && !screen) {
       this.fail("I couldn't make out any words. Try again a little closer to the microphone.");
       return;
     }
 
     this.set("thinking");
-    const reply = await askClaude(text, { spoken: true });
+    const reply = screen
+      ? await askAboutScreen(text, Listen.transcript())
+      : await askClaude(text, { spoken: true });
     if (turn !== this.turn) return;
     if (reply == null) {
-      // askClaude has already put the error on screen.
+      // The chat has already put the error on screen.
       this.finish();
       return;
     }

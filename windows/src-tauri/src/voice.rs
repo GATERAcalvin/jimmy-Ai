@@ -1,11 +1,11 @@
 // Voice — push-to-talk speech in and out, online or offline.
 //
-//   Speech to text   online   OpenAI transcription
+//   Speech to text   online   Gemini (audio understanding)
 //                    offline  whisper.cpp, a local executable + a ggml model
-//   Text to speech   online   OpenAI speech (an mp3 handed to the page to play)
+//   Text to speech   online   Gemini speech (a WAV handed to the page to play)
 //                    offline  the system voices, spoken by the page itself
 //
-// The mode setting picks: "online", "offline", or "auto" (online when an OpenAI
+// The mode setting picks: "online", "offline", or "auto" (online when a Gemini
 // key is saved and the call works, otherwise offline). As everywhere else, keys
 // stay on this side of the IPC boundary — the page only ever sees audio and text.
 
@@ -16,25 +16,16 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
-use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 use crate::settings::{self, Settings};
-use crate::{island, log, secrets};
+use crate::{island, log};
 
-pub const OPENAI_KEY: &str = "openai-api-key";
-
-const STT_ENDPOINT: &str = "https://api.openai.com/v1/audio/transcriptions";
-const TTS_ENDPOINT: &str = "https://api.openai.com/v1/audio/speech";
-/// Model names are the part of this most likely to move: check the OpenAI docs
-/// if a call starts failing with "model not found".
-const STT_MODEL: &str = "whisper-1";
-const TTS_MODEL: &str = "tts-1";
-/// The speech endpoint refuses more than 4096 characters.
+/// Long answers are cut to what one speech request handles well.
 const TTS_MAX_CHARS: usize = 4000;
-/// The transcription endpoint refuses uploads over 25 MB.
-const MAX_WAV_BYTES: usize = 25 * 1024 * 1024;
+/// Inline audio to Gemini is limited to about 20 MB in total.
+const MAX_WAV_BYTES: usize = 18 * 1024 * 1024;
 /// A local transcription that takes longer than this is hung, not slow.
 const WHISPER_TIMEOUT: Duration = Duration::from_secs(90);
 
@@ -61,7 +52,7 @@ impl Mode {
 #[serde(rename_all = "camelCase")]
 pub struct Transcript {
     pub text: String,
-    /// "openai" or "whisper.cpp" — shown in the settings so you know what ran.
+    /// "gemini" or "whisper.cpp" — shown in the settings so you know what ran.
     pub engine: &'static str,
 }
 
@@ -71,7 +62,7 @@ pub async fn transcribe(wav_b64: &str, settings: &Settings) -> Result<Transcript
         return Err("That recording is too long. Try a shorter one.".into());
     }
     let mode = Mode::parse(&settings.voice_mode);
-    let online_ready = secrets::present(OPENAI_KEY);
+    let online_ready = crate::gemini::has_key();
     let whisper = find_whisper(settings);
 
     match mode {
@@ -91,7 +82,7 @@ pub async fn transcribe(wav_b64: &str, settings: &Settings) -> Result<Transcript
             }
             if whisper.is_none() && !online_ready {
                 return Err(
-                    "No speech engine is ready. Save an OpenAI key, or set up offline voice, in Settings → Voice."
+                    "No speech engine is ready. Save a Gemini key, or set up offline voice, in Settings → Voice."
                         .into(),
                 );
             }
@@ -101,38 +92,8 @@ pub async fn transcribe(wav_b64: &str, settings: &Settings) -> Result<Transcript
 }
 
 async fn online_stt(wav: Vec<u8>, settings: &Settings) -> Result<Transcript, String> {
-    let key = secrets::get(OPENAI_KEY)
-        .ok_or_else(|| "OpenAI key missing. Add it in Settings → Voice.".to_string())?;
-
-    let file = reqwest::multipart::Part::bytes(wav)
-        .file_name("speech.wav")
-        .mime_str("audio/wav")
-        .map_err(|e| e.to_string())?;
-    let mut form = reqwest::multipart::Form::new()
-        .text("model", STT_MODEL)
-        .text("response_format", "json")
-        .part("file", file);
-    let lang = settings.voice_language.trim();
-    if !lang.is_empty() && lang != "auto" {
-        form = form.text("language", lang.to_string());
-    }
-
-    let client = http_client(Duration::from_secs(60))?;
-    let response = client
-        .post(STT_ENDPOINT)
-        .bearer_auth(key)
-        .multipart(form)
-        .send()
-        .await
-        .map_err(|e| format!("Network error: {e}"))?;
-    let value = read_json(response, "OpenAI transcription").await?;
-    let text = value
-        .get("text")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .trim()
-        .to_string();
-    Ok(Transcript { text, engine: "openai" })
+    let text = crate::gemini::transcribe(&crate::claude::base64_for(&wav), settings.voice_language.trim()).await?;
+    Ok(Transcript { text, engine: "gemini" })
 }
 
 async fn offline_stt(
@@ -340,7 +301,7 @@ fn clean_transcript(raw: &str) -> String {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Speech {
-    /// "openai" (audio attached) or "system" (the page speaks it itself).
+    /// "gemini" (audio attached) or "system" (the page speaks it itself).
     pub engine: &'static str,
     /// Base64 audio, only for the online engine.
     pub audio: Option<String>,
@@ -361,7 +322,7 @@ pub async fn synthesize(text: &str, settings: &Settings) -> Result<Speech, Strin
         Mode::Offline => Ok(system(text)),
         Mode::Online => online_tts(&text, settings).await,
         Mode::Auto => {
-            if !secrets::present(OPENAI_KEY) {
+            if !crate::gemini::has_key() {
                 return Ok(system(text));
             }
             match online_tts(&text, settings).await {
@@ -376,35 +337,14 @@ pub async fn synthesize(text: &str, settings: &Settings) -> Result<Speech, Strin
 }
 
 async fn online_tts(text: &str, settings: &Settings) -> Result<Speech, String> {
-    let key = secrets::get(OPENAI_KEY)
-        .ok_or_else(|| "OpenAI key missing. Add it in Settings → Voice.".to_string())?;
-    let voice = non_empty(&settings.tts_voice).unwrap_or("alloy");
-    let body = json!({
-        "model": TTS_MODEL,
-        "voice": voice,
-        "input": text,
-        "response_format": "mp3",
-    });
-
-    let client = http_client(Duration::from_secs(60))?;
-    let response = client
-        .post(TTS_ENDPOINT)
-        .bearer_auth(key)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("Network error: {e}"))?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let text = response.text().await.unwrap_or_default();
-        return Err(api_error("OpenAI speech", status, &text));
-    }
-    let bytes = response.bytes().await.map_err(|e| e.to_string())?;
+    let voice = non_empty(&settings.tts_voice)
+        .filter(|v| crate::gemini::VOICES.contains(v))
+        .unwrap_or("Kore");
+    let wav = crate::gemini::speak(text, voice).await?;
     Ok(Speech {
-        engine: "openai",
-        audio: Some(crate::claude::base64_for(&bytes)),
-        mime: "audio/mpeg",
+        engine: "gemini",
+        audio: Some(crate::claude::base64_for(&wav)),
+        mime: "audio/wav",
         text: text.to_string(),
     })
 }
@@ -443,7 +383,7 @@ struct HotkeyStatus {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VoiceStatus {
-    pub openai_key: bool,
+    pub gemini_key: bool,
     pub offline_ready: bool,
     pub whisper_cli: Option<String>,
     pub whisper_model: Option<String>,
@@ -456,7 +396,7 @@ pub fn status(app: &AppHandle, settings: &Settings) -> VoiceStatus {
     let whisper = find_whisper(settings);
     let hotkey = app.state::<VoiceState>().hotkey.lock().unwrap().clone();
     VoiceStatus {
-        openai_key: secrets::present(OPENAI_KEY),
+        gemini_key: crate::gemini::has_key(),
         offline_ready: whisper.is_some(),
         whisper_cli: whisper.as_ref().map(|w| w.cli.to_string_lossy().to_string()),
         whisper_model: whisper.as_ref().map(|w| w.model.to_string_lossy().to_string()),
@@ -477,27 +417,40 @@ pub fn apply_hotkey(app: &AppHandle, settings: &Settings) {
 
     let mut state = HotkeyStatus::default();
     if settings.voice_enabled {
-        let combo = settings.voice_hotkey.trim().to_string();
-        match combo.parse::<Shortcut>() {
-            Err(err) => {
-                state.error = Some(format!("\"{combo}\" is not a shortcut I understand: {err}"));
+        // (combination, what the page is told when it is pressed / released)
+        let wanted: [(&str, &str, Option<&str>, &str); 3] = [
+            (settings.voice_hotkey.trim(), "down", Some("up"), "talk"),
+            (settings.screen_hotkey.trim(), "screen-down", Some("screen-up"), "screen"),
+            (settings.listen_hotkey.trim(), "listen", None, "listen"),
+        ];
+        let mut errors: Vec<String> = Vec::new();
+        for (combo, pressed, released, name) in wanted {
+            if combo.is_empty() {
+                continue;
             }
-            Ok(shortcut) => {
-                let handle = app.clone();
-                let result = shortcuts.on_shortcut(shortcut, move |_app, _shortcut, event| {
-                    let phase = match event.state() {
-                        ShortcutState::Pressed => "down",
-                        ShortcutState::Released => "up",
-                    };
-                    let _ = handle.emit_to(island::WINDOW_LABEL, "voice-ptt", phase);
-                });
-                match result {
-                    Ok(()) => state.registered = Some(combo),
-                    Err(err) => {
-                        state.error = Some(format!("Could not use {combo}: {err}. Another app may own it."));
+            match combo.parse::<Shortcut>() {
+                Err(err) => errors.push(format!("\"{combo}\" is not a shortcut I understand: {err}")),
+                Ok(shortcut) => {
+                    let handle = app.clone();
+                    let result = shortcuts.on_shortcut(shortcut, move |_app, _shortcut, event| {
+                        let phase = match event.state() {
+                            ShortcutState::Pressed => Some(pressed),
+                            ShortcutState::Released => released,
+                        };
+                        if let Some(phase) = phase {
+                            let _ = handle.emit_to(island::WINDOW_LABEL, "voice-ptt", phase);
+                        }
+                    });
+                    match result {
+                        Ok(()) if name == "talk" => state.registered = Some(combo.to_string()),
+                        Ok(()) => {}
+                        Err(err) => errors.push(format!("Could not use {combo}: {err}. Another app may own it.")),
                     }
                 }
             }
+        }
+        if !errors.is_empty() {
+            state.error = Some(errors.join(" "));
         }
     }
     if let Some(err) = &state.error {
@@ -508,37 +461,8 @@ pub fn apply_hotkey(app: &AppHandle, settings: &Settings) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-fn http_client(timeout: Duration) -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .timeout(timeout)
-        .build()
-        .map_err(|e| e.to_string())
-}
-
-async fn read_json(response: reqwest::Response, what: &str) -> Result<Value, String> {
-    let status = response.status();
-    let text = response.text().await.map_err(|e| e.to_string())?;
-    if !status.is_success() {
-        return Err(api_error(what, status, &text));
-    }
-    serde_json::from_str(&text).map_err(|e| format!("Bad response from {what}: {e}"))
-}
-
-fn api_error(what: &str, status: reqwest::StatusCode, body: &str) -> String {
-    let detail = serde_json::from_str::<Value>(body)
-        .ok()
-        .and_then(|v| {
-            v.get("error")
-                .and_then(|e| e.get("message"))
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        })
-        .unwrap_or_else(|| body.chars().take(200).collect());
-    format!("{what} {status}: {detail}")
-}
-
 /// Standard-alphabet base64 decoder (whitespace ignored, padding optional).
-fn base64_decode(input: &str) -> Option<Vec<u8>> {
+pub fn base64_decode(input: &str) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(input.len() / 4 * 3);
     let mut acc: u32 = 0;
     let mut bits = 0;

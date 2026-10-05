@@ -11,6 +11,9 @@ const LEGACY_SERVICE: &str = "com.gateracalvin.ruth";
 pub const KNOWN_KEYS: &[&str] = &[
     "anthropic-api-key",
     "gemini-api-key",
+    "google-client-id",
+    "google-client-secret",
+    "google-refresh-token",
     "n8n-url",
     "n8n-api-key",
     "vercel-token",

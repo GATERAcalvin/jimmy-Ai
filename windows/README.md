@@ -80,17 +80,17 @@ It works online, offline, or both:
 
 | | Online | Offline |
 |---|---|---|
-| **Hearing you** | OpenAI transcription | whisper.cpp on your PC |
-| **Speaking** | OpenAI voices | the Windows voices |
-| **Needs** | an OpenAI key + internet | a one-time download (below) |
-| **Audio leaves your PC** | yes, to OpenAI | no |
+| **Hearing you** | Gemini | whisper.cpp on your PC |
+| **Speaking** | Gemini voices | the Windows voices |
+| **Needs** | a Gemini key + internet | a one-time download (below) |
+| **Audio leaves your PC** | yes, to Google | no |
 
 *Engines* in Settings → Voice picks the mode. **Automatic** (the default) uses
 online when a key is saved and the call works, and falls back to offline
 otherwise, so voice keeps working when the connection drops. Claude itself is
 still online: the answer to your question always comes from the Claude API.
 
-**Online:** paste an OpenAI key under Settings → Voice. It is stored in the
+**Online:** paste a Gemini key (free from aistudio.google.com) under Settings → Voice. The same key reads the screen and listens. It is stored in the
 Windows Credential Manager like the other keys.
 
 **Offline:** run this once from the `windows` folder. It downloads whisper.cpp
@@ -125,9 +125,35 @@ Notes:
   `whisper-bin-x64.zip`. If a download step fails, it says which file to fetch by hand.
 - On Linux it compiles, but global hotkeys (Wayland) and microphone access in the
   web view are untested.
-- Online models: transcription uses `whisper-1` and speech uses `tts-1`; both still
-  work, and newer OpenAI models exist. They are two constants at the top of
-  `src-tauri/src/voice.rs`.
+- Online models: transcription and screen questions use `gemini-2.5-flash`, speech uses
+  `gemini-2.5-flash-preview-tts`. Google renames models often; they are constants at
+  the top of `src-tauri/src/gemini.rs`.
+
+## Screen, listening, mail, alarms
+
+- **Ask about the screen:** hold **Ctrl+Alt+S**, speak, let go. Jimmy takes a screenshot
+  (it is sent to Gemini and deleted) and answers. Tap the key with nothing said and
+  Jimmy works out what you need. Typing or saying "read my screen" does the same.
+- **Listen mode:** **Ctrl+Alt+L** turns it on and off. While on, the microphone is open
+  and the last few minutes of speech are kept as text in memory only, so a screen
+  question can use them. The Windows microphone indicator shows while it runs. It
+  hears through the microphone, so for a call or video use speakers the mic can hear,
+  or set a loopback device (such as Stereo Mix) as the Windows default input.
+- **E-mail and calendar:** Settings → Assistant. Create a free OAuth client (type
+  Desktop app) in Google Cloud with the Gmail and Calendar APIs on, paste its ID and
+  secret, press Connect Google. Access is read only; only a refresh token is kept, in
+  the Credential Manager. Then ask "summarise my emails" or "what's on my calendar tomorrow".
+- **WhatsApp and Instagram:** neither offers a way to read a personal account's messages,
+  so Jimmy reads them off the screen: open the web version and say "read my WhatsApp".
+- **Alarms:** "wake me at 6:30", "alarm at 7 on weekdays", "timer for 10 minutes", "remind
+  me in an hour to stretch", "what alarms do I have", "cancel my alarms". Also in
+  Settings → Assistant. Jimmy has to be running to ring (turn on Start with Windows).
+  Click or press any key to silence one.
+- Please use the screen and listening features only where it is allowed: most schools
+  and employers do not permit them in graded tests or proctored interviews.
+- Status: unit-tested on Linux (alarm repeat rules, PKCE against the RFC vector, request
+  building). The Windows screenshot, the Google sign-in and the Gemini calls have not
+  been run against the real services yet.
 
 ## Build it yourself
 

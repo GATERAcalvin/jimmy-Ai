@@ -48,6 +48,20 @@ pub struct Settings {
     /// System voice used offline, by name. Empty = the system default.
     #[serde(default)]
     pub offline_voice: String,
+    /// Hold to ask about what is on the screen (and what was just heard).
+    #[serde(default = "default_screen_hotkey")]
+    pub screen_hotkey: String,
+    /// Press to start or stop listening to the room / the meeting.
+    #[serde(default = "default_listen_hotkey")]
+    pub listen_hotkey: String,
+}
+
+fn default_screen_hotkey() -> String {
+    "Ctrl+Alt+S".into()
+}
+
+fn default_listen_hotkey() -> String {
+    "Ctrl+Alt+L".into()
 }
 
 fn yes() -> bool {
@@ -67,7 +81,7 @@ fn default_voice_language() -> String {
 }
 
 fn default_tts_voice() -> String {
-    "alloy".into()
+    "Kore".into()
 }
 
 fn default_model() -> String {
@@ -100,6 +114,8 @@ impl Default for Settings {
             whisper_model_path: String::new(),
             tts_voice: default_tts_voice(),
             offline_voice: String::new(),
+            screen_hotkey: default_screen_hotkey(),
+            listen_hotkey: default_listen_hotkey(),
         }
     }
 }

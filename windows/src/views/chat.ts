@@ -6,6 +6,7 @@ import { ICONS } from "./icons";
 import { Bridge, type ChatContext } from "../core/bridge";
 import { Sound } from "../core/sound";
 import { State, type ChatMessage } from "../core/state";
+import { handleLocalCommand } from "../assist/commands";
 import type { ViewHost } from "./views";
 
 let nextId = 1;
@@ -20,31 +21,26 @@ export function isChatBusy(): boolean {
 }
 
 /**
- * One chat turn, whether it was typed or spoken: adds the question, waits for
- * Claude, adds the answer. Returns the answer's text, or null if it failed (the
- * island then shows the error in the note view).
+ * One chat turn, whether it was typed or spoken: adds the question, waits for the
+ * answer from `produce`, adds it to the log. Returns the answer's text, or null if
+ * it failed (the island then shows the error in the note view).
  */
-export async function askClaude(query: string, opts: { spoken?: boolean } = {}): Promise<string | null> {
-  const text = query.trim();
-  if (!text || sending) return null;
+async function runTurn(shown: string, produce: () => Promise<string>): Promise<string | null> {
+  if (!shown || sending) return null;
   sending = true;
   Sound.play("send");
 
-  State.chatHistory.push({ id: nextId++, role: "user", content: text });
+  State.chatHistory.push({ id: nextId++, role: "user", content: shown });
   State.stateOverride = "thinking";
   State.notify();
   heightChanged();
 
-  const file = State.droppedFile;
-  const context: ChatContext | null =
-    State.chatHistory.length === 1 && file ? { kind: "file", name: file.name, path: file.path } : null;
-
   try {
-    const reply = await Bridge.chatSend(text, context, opts.spoken ?? false);
-    State.chatHistory.push({ id: nextId++, role: "assistant", content: reply.text });
+    const reply = await produce();
+    State.chatHistory.push({ id: nextId++, role: "assistant", content: reply });
     State.stateOverride = null;
     Sound.play("finish");
-    return reply.text;
+    return reply;
   } catch (err) {
     State.stateOverride = null;
     State.noteMessage = String(err).replace(/^Error:\s*/, "");
@@ -57,6 +53,32 @@ export async function askClaude(query: string, opts: { spoken?: boolean } = {}):
     heightChanged();
     focusInput();
   }
+}
+
+/**
+ * A typed or spoken question. Alarms, e-mail and calendar are handled on the spot
+ * (see assist/commands.ts); everything else goes to Claude.
+ */
+export function askClaude(query: string, opts: { spoken?: boolean } = {}): Promise<string | null> {
+  const text = query.trim();
+  return runTurn(text, async () => {
+    const local = await handleLocalCommand(text);
+    if (local !== null) return local;
+    const file = State.droppedFile;
+    const context: ChatContext | null =
+      State.chatHistory.length === 1 && file ? { kind: "file", name: file.name, path: file.path } : null;
+    const reply = await Bridge.chatSend(text, context, opts.spoken ?? false);
+    return reply.text;
+  });
+}
+
+/**
+ * A question about what is on the screen, with a transcript of what was just
+ * heard. An empty `query` means "work out what I need".
+ */
+export function askAboutScreen(query: string, heard: string): Promise<string | null> {
+  const text = query.trim();
+  return runTurn(text || "Look at my screen", () => Bridge.assistAsk(text, true, heard));
 }
 
 function bubble(message: ChatMessage): HTMLElement {

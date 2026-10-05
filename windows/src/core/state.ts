@@ -106,6 +106,8 @@ export interface Settings {
   whisperModelPath: string;
   ttsVoice: string;
   offlineVoice: string;
+  screenHotkey: string;
+  listenHotkey: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -127,8 +129,10 @@ export const DEFAULT_SETTINGS: Settings = {
   voiceLanguage: "auto",
   whisperCliPath: "",
   whisperModelPath: "",
-  ttsVoice: "alloy",
+  ttsVoice: "Kore",
   offlineVoice: "",
+  screenHotkey: "Ctrl+Alt+S",
+  listenHotkey: "Ctrl+Alt+L",
 };
 
 type Listener = () => void;
@@ -144,6 +148,8 @@ class AppState {
 
   /** Driven by the voice controller; the chat bar reads it. */
   voicePhase: VoicePhase = "idle";
+  /** True while Jimmy is quietly listening to the room (see voice/listen.ts). */
+  listening = false;
   /** The mic button calls this: start, stop or interrupt, depending on the phase. */
   voiceToggle: (() => void) | null = null;
 

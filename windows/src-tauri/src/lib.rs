@@ -1,7 +1,11 @@
 // Jimmy for Windows — app wiring and the commands the island calls.
 
 mod claude;
+mod alarms;
+mod assist;
 mod files;
+mod gemini;
+mod google;
 mod hooks;
 mod integrations;
 mod island;
@@ -67,7 +71,9 @@ fn save_settings(app: AppHandle, shared: State<Shared>, settings: Settings) {
         let screen_changed = current.screen != settings.screen;
         let autostart_changed = current.autostart != settings.autostart;
         let voice_changed = current.voice_enabled != settings.voice_enabled
-            || current.voice_hotkey != settings.voice_hotkey;
+            || current.voice_hotkey != settings.voice_hotkey
+            || current.screen_hotkey != settings.screen_hotkey
+            || current.listen_hotkey != settings.listen_hotkey;
         *current = settings.clone();
         (screen_changed, autostart_changed, voice_changed)
     };
@@ -252,6 +258,63 @@ async fn chat_send(
     claude::send(&chat, &model, query, context, spoken.unwrap_or(false)).await
 }
 
+// ── Assist: screen, alarms, Google ────────────────────────────────────────────
+
+/// Ask Gemini, optionally looking at the screen, with a transcript of what was heard.
+#[tauri::command]
+async fn assist_ask(prompt: String, screen: bool, heard: String) -> Result<String, String> {
+    assist::ask(&prompt, screen, &heard).await
+}
+
+#[tauri::command]
+fn alarm_list(alarms: State<alarms::Alarms>) -> Vec<alarms::Alarm> {
+    alarms.all()
+}
+
+#[tauri::command]
+fn alarm_add(alarms: State<alarms::Alarms>, label: String, at_ms: u64, repeat: String) -> alarms::Alarm {
+    alarms.add(label, at_ms, repeat)
+}
+
+/// Removes one alarm, or all of them when no id is given. Returns how many went.
+#[tauri::command]
+fn alarm_remove(alarms: State<alarms::Alarms>, id: Option<u64>) -> usize {
+    alarms.remove(id)
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GoogleStatus {
+    configured: bool,
+    connected: bool,
+}
+
+#[tauri::command]
+fn google_status() -> GoogleStatus {
+    GoogleStatus { configured: google::configured(), connected: google::connected() }
+}
+
+#[tauri::command]
+async fn google_connect() -> Result<(), String> {
+    google::connect(|url| platform::open_url(url)).await
+}
+
+#[tauri::command]
+fn google_disconnect() -> Result<(), String> {
+    secrets::clear("google-refresh-token")
+}
+
+#[tauri::command]
+async fn google_unread(max: usize) -> Result<Vec<google::Mail>, String> {
+    google::unread_mail(max).await
+}
+
+/// `from` and `to` are RFC 3339 timestamps (the page builds them).
+#[tauri::command]
+async fn google_events(from: String, to: String) -> Result<Vec<google::Event>, String> {
+    google::upcoming_events(&from, &to).await
+}
+
 // ── Voice ─────────────────────────────────────────────────────────────────────
 
 /// Recording (16 kHz mono WAV, base64) → text. Online, offline or auto, per the
@@ -408,6 +471,7 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(voice::VoiceState::default())
+        .manage(alarms::Alarms::default())
         .manage(Shared {
             settings: Mutex::new(loaded.clone()),
             gate: gate.clone(),
@@ -436,6 +500,15 @@ pub fn run() {
             voice_transcribe,
             voice_synthesize,
             voice_status,
+            assist_ask,
+            alarm_list,
+            alarm_add,
+            alarm_remove,
+            google_status,
+            google_connect,
+            google_disconnect,
+            google_unread,
+            google_events,
             ingest_file,
             secret_present,
             secret_set,
@@ -468,6 +541,7 @@ pub fn run() {
             log::line(format!("--- Jimmy {} started ---", env!("CARGO_PKG_VERSION")));
             hooks::ensure_hook_exe(&handle);
             voice::apply_hotkey(&handle, &loaded);
+            alarms::spawn(handle.clone());
             pipe::start(handle.clone());
             integrations::start(handle.clone());
             Ok(())
