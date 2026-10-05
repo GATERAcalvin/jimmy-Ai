@@ -2,6 +2,8 @@
 // Everything is laid out in the same 640×150 reference space as on macOS.
 
 import { Sound } from "../core/sound";
+import { browFor, drawPortrait, HOODIE_BASE } from "./portrait";
+import type { EyeShape, RGB } from "./engine";
 import { COMPACT_W, NOTCH_H, NOTCH_W } from "../core/layout";
 
 // ── Timing (mirrors greeting-v2.html `T`) ─────────────────────────────────────
@@ -268,10 +270,11 @@ function ruthPath(hw: number, hh: number): Path2D {
 function whiteFill(
   x: CanvasRenderingContext2D, path: Path2D,
   x0: number, y0: number, x1: number, y1: number,
+  c0 = "rgb(251,251,252)", c1 = "rgb(231,233,236)",
 ) {
   const g = x.createLinearGradient(x0, y0, x1, y1);
-  g.addColorStop(0, "rgb(251,251,252)");
-  g.addColorStop(1, "rgb(231,233,236)");
+  g.addColorStop(0, c0);
+  g.addColorStop(1, c1);
   x.save();
   x.fillStyle = g;
   x.fill(path);
@@ -290,7 +293,7 @@ function drawHandL(x: CanvasRenderingContext2D, hw: number, hh: number, p: Pose)
   x.translate(rx, ry);
   const circ = new Path2D();
   circ.ellipse(0, 0, r, r, 0, 0, Math.PI * 2);
-  whiteFill(x, circ, r, -r, -r, r);
+  whiteFill(x, circ, r, -r, -r, r, "#A96F4E", "#7A4C36");
   x.strokeStyle = "rgba(0,0,0,0.08)";
   x.lineWidth = 0.8;
   x.stroke(circ);
@@ -316,8 +319,8 @@ function drawHandR(x: CanvasRenderingContext2D, hw: number, hh: number, p: Pose)
   x.translate(rx, ry);
   x.rotate(ang);
   const g = x.createLinearGradient(L / 2, -T2 / 2, -L / 2, T2 / 2);
-  g.addColorStop(0, "rgb(251,251,252)");
-  g.addColorStop(1, "rgb(231,233,236)");
+  g.addColorStop(0, "#A96F4E");
+  g.addColorStop(1, "#7A4C36");
   rr(x, -L / 2, -T2 / 2, L, T2, T2 / 2);
   x.fillStyle = g;
   x.fill();
@@ -357,52 +360,29 @@ function drawRuth(x: CanvasRenderingContext2D, p: Pose) {
   drawHandL(x, hw, hh, p);
   drawHandR(x, hw, hh, p);
 
-  const body = ruthPath(hw, hh);
-  whiteFill(x, body, hw * 0.6, -hh, -hw * 0.6, hh);
-
-  if (p.tint > 0) {
-    const g = x.createLinearGradient(0, hh, 0, -hh * 0.1);
-    g.addColorStop(0, `rgba(127,180,234,${p.tint})`);
-    g.addColorStop(1, "rgba(127,180,234,0)");
-    x.save();
-    x.clip(body);
-    x.fillStyle = g;
-    x.fill(body);
-    x.restore();
-  }
-
-  // Eyes
+  const shape: EyeShape = p.eye === "dot" ? "pill" : "happy";
+  const hoodie: RGB = p.tint > 0 ? [HOODIE_BASE[0] * (1 - p.tint * 0.5) + 0.5 * p.tint * 0.5, HOODIE_BASE[1] * (1 - p.tint * 0.5) + 0.7 * p.tint * 0.5, HOODIE_BASE[2] * (1 - p.tint * 0.5) + 0.92 * p.tint * 0.5] : HOODIE_BASE;
   x.save();
-  x.clip(body);
-  x.fillStyle = "#16171A";
-  x.strokeStyle = "#16171A";
-  const er = p.hb * 0.06;
-  const sp = p.hb * 0.19;
-  const lx = p.lookX * hw * 0.42;
-  const ly = p.lookY * hh * 0.28 + hh * 0.12 + p.eyeRoll * hh * 1.25;
-  for (const sd of [-1, 1]) {
-    x.save();
-    x.translate(sd * sp + lx, ly);
-    if (p.eye === "happy") {
-      x.lineWidth = er * 0.95;
-      x.lineCap = "round";
-      x.beginPath();
-      x.arc(0, er * 0.6, er * 1.25, Math.PI * 1.15, Math.PI * 1.85);
-      x.stroke();
-    } else if (p.eye === "content") {
-      x.lineWidth = er * 0.95;
-      x.lineCap = "round";
-      x.beginPath();
-      x.arc(0, -er * 0.5, er * 1.25, Math.PI * 0.15, Math.PI * 0.85);
-      x.stroke();
-    } else {
-      x.scale(1, Math.max(0.12, p.open));
-      x.beginPath();
-      x.arc(0, 0, er, 0, Math.PI * 2);
-      x.fill();
-    }
-    x.restore();
-  }
+  x.translate(0, -hh * 0.08);
+  drawPortrait(x, hh * 1.05, {
+    yaw: p.lookX * 0.5,
+    pitch: -p.lookY * 0.4,
+    open: p.eye === "dot" ? Math.max(0.05, p.open) : 1,
+    es: 1,
+    shape,
+    brows: [browFor(shape, -1), browFor(shape, 1)],
+    hoodie,
+    talk: 0,
+    blush: p.eye === "happy" ? 0.5 : 0,
+    alpha: 1,
+    eyeShape: (c, _sh, w, h) => {
+      c.lineWidth = Math.max(0.8, w * 0.35);
+      c.lineCap = "round";
+      c.beginPath();
+      c.arc(0, h * 0.2, w * 0.7, Math.PI * 1.15, Math.PI * 1.85);
+      c.stroke();
+    },
+  });
   x.restore();
 
   // Activity badge

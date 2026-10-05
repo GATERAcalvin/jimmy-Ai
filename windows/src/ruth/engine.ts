@@ -5,6 +5,7 @@
 import { Ease, lerp, type EaseFn } from "../core/anim";
 import { Sound } from "../core/sound";
 import type { BotEmoteName, BotStateName } from "../core/layout";
+import { browFor, drawPortrait, HOODIE_BASE, type Brow } from "./portrait";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,8 +63,8 @@ const EYE_W = 0.25;
 const EYE_H = 0.27;
 const EYE_SP = 0.37;
 const EYE_P = -0.12;
-const BASE_TOP: RGB = [1, 0.89, 0.76]; // #FFE3C2 — warm cream
-const BASE_BOTTOM: RGB = [0.9, 0.54, 0.36]; // #E68A5C — terracotta
+const BASE_TOP: RGB = [0.88, 0.9, 0.93]; // pale silver (the mailbox)
+const BASE_BOTTOM: RGB = [0.5, 0.53, 0.6]; // steel
 const INK = "rgb(46,22,38)"; // #2E1626 — deep plum
 const MINI_INK = "rgb(30,14,26)"; // #1E0E1A
 
@@ -164,6 +165,10 @@ const FONT = `system-ui, "Segoe UI Variable Text", "Segoe UI", sans-serif`;
 
 export class BotEngine {
   isMini = false;
+  /** True while Jimmy is speaking an answer aloud: the mouth moves. */
+  speaking = false;
+  private browL: Brow = { raise: 0, slope: 0.3 };
+  private browR: Brow = { raise: 0, slope: 0.3 };
   /** Solid body colour for mini bots / integration pills (null = Ruth gradient). */
   bodyColor: RGB | null = null;
 
@@ -652,12 +657,19 @@ export class BotEngine {
     if (this.tilt !== 0) x.rotate(this.tilt);
     x.scale(this.sx, this.sy);
 
-    this.drawEars(x, R, rx, ry);
     const body = this.bodyPath(rx, ry, R);
-    this.drawBody(x, body, R, rx, ry);
+    const portrait = !this.isMini;
+    const boxA = portrait ? Math.min(1, this.morph * 1.6) : 1;
+    if (portrait) this.drawFace(x, R);
+    if (boxA > 0.005) {
+      x.save();
+      x.globalAlpha *= boxA;
+      this.drawBody(x, body, R, rx, ry);
+      x.restore();
+    }
 
     const blushVal = Math.max(this.blush, this.tint * 0.5) * (1 - this.morph);
-    if (blushVal > 0.01) {
+    if (!portrait && blushVal > 0.01) {
       x.save();
       x.clip(body);
       const yOffset = Math.sin(this.yaw) * rx * 0.8;
@@ -670,8 +682,13 @@ export class BotEngine {
       x.restore();
     }
 
-    this.drawEyes(x, body, R, rx, ry);
-    if (this.morph > 0.05) this.drawMouth(x, body, R);
+    if (!portrait || boxA > 0.005) {
+      x.save();
+      x.globalAlpha *= boxA;
+      this.drawEyes(x, body, R, rx, ry);
+      if (this.morph > 0.05) this.drawMouth(x, body, R);
+      x.restore();
+    }
 
     x.restore();
 
@@ -711,36 +728,38 @@ export class BotEngine {
     return p;
   }
 
-  /** Two small rounded ears on the dome. They melt away as Ruth turns into a box. */
-  private drawEars(x: CanvasRenderingContext2D, R: number, rx: number, ry: number) {
-    if (this.bodyColor || this.isMini) return;
-    const k = 1 - this.morph;
-    if (k < 0.02) return;
-    for (const sd of [-1, 1]) {
-      x.save();
-      x.translate(sd * rx * 0.58, -ry * 0.82);
-      x.rotate(sd * 0.32);
-      x.scale(k, k);
-      const g = x.createLinearGradient(0, -R * 0.4, 0, R * 0.2);
-      g.addColorStop(0, rgba(BASE_TOP));
-      g.addColorStop(1, rgba(mix3(BASE_TOP, BASE_BOTTOM, 0.45)));
-      x.fillStyle = g;
-      x.beginPath();
-      x.moveTo(-R * 0.2, R * 0.12);
-      x.quadraticCurveTo(-R * 0.22, -R * 0.34, 0, -R * 0.4);
-      x.quadraticCurveTo(R * 0.22, -R * 0.34, R * 0.2, R * 0.12);
-      x.closePath();
-      x.fill();
-      // inner ear
-      x.fillStyle = "rgba(255,120,110,0.45)";
-      x.beginPath();
-      x.moveTo(-R * 0.09, R * 0.06);
-      x.quadraticCurveTo(-R * 0.1, -R * 0.2, 0, -R * 0.24);
-      x.quadraticCurveTo(R * 0.1, -R * 0.2, R * 0.09, R * 0.06);
-      x.closePath();
-      x.fill();
-      x.restore();
-    }
+  /** The portrait: the head, glasses and hoodie, posed from the engine's state. */
+  private drawFace(x: CanvasRenderingContext2D, R: number) {
+    const shape: EyeShape = this.eyeOverride ?? this.cfg.eye;
+    const k = 0.2;
+    const tl = browFor(shape, -1);
+    const tr = browFor(shape, 1);
+    this.browL = { raise: lerp(this.browL.raise, tl.raise, k), slope: lerp(this.browL.slope, tl.slope, k) };
+    this.browR = { raise: lerp(this.browR.raise, tr.raise, k), slope: lerp(this.browR.slope, tr.slope, k) };
+
+    let hoodie: RGB = HOODIE_BASE;
+    if (this.bodyColor) hoodie = mix3(HOODIE_BASE, this.bodyColor, 0.6);
+    else if (this.tint > 0.01) hoodie = mix3(HOODIE_BASE, this.col, this.tint * 0.55);
+
+    const talk = this.speaking ? 0.35 + 0.65 * Math.abs(Math.sin(now() * 11)) * (0.6 + 0.4 * Math.sin(now() * 3.7)) : 0;
+    const Rp = R * 1.15;
+    x.save();
+    x.translate(0, -Rp * 0.1);
+    x.rotate(Math.sin(this.roll) * 0.22);
+    drawPortrait(x, Rp, {
+      yaw: this.yaw,
+      pitch: this.pitch,
+      open: this.open,
+      es: this.es,
+      shape,
+      brows: [this.browL, this.browR],
+      hoodie,
+      talk,
+      blush: Math.max(this.blush, this.tint * 0.5),
+      alpha: 1 - Math.min(1, this.morph * 1.6),
+      eyeShape: (c, sh, w, h, sd) => this.drawEyeShape(c, sh, w, h, sd, INK),
+    });
+    x.restore();
   }
 
   private drawBody(x: CanvasRenderingContext2D, body: Path2D, R: number, rx: number, ry: number) {
@@ -1024,7 +1043,10 @@ export class BotEngine {
       x.translate(worldX, worldY);
       if (handRot !== 0) x.rotate(handRot);
       const g = x.createLinearGradient(hew * 0.7, -heh * 0.85, -hew * 0.8, heh * 0.9);
-      if (this.bodyColor) {
+      if (this.morph < 0.5) {
+        g.addColorStop(0, "#A96F4E");
+        g.addColorStop(1, "#6E4330");
+      } else if (this.bodyColor) {
         g.addColorStop(0, rgba(mix3(this.bodyColor, [1, 1, 1], 0.35)));
         g.addColorStop(1, rgba(this.bodyColor));
       } else {
